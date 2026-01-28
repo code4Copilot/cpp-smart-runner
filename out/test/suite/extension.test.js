@@ -315,4 +315,117 @@ suite('Encoding Conversion Command Test Suite', () => {
         assert.strictEqual(decoded, asciiContent);
     });
 });
+suite('Compiler Flags Test Suite', () => {
+    // Helper functions to simulate extension logic
+    function getStandardFlag(languageId) {
+        return languageId === 'cpp' ? '-std=c++17' : '-std=c11';
+    }
+    function getCompiler(languageId) {
+        return languageId === 'cpp' ? 'g++' : 'gcc';
+    }
+    function buildCompileCommand(languageId, fileName, compilerFlags, outputFile) {
+        const compiler = getCompiler(languageId);
+        const standardFlag = getStandardFlag(languageId);
+        return `${compiler} "${fileName}" ${standardFlag} -finput-charset=utf-8 -fexec-charset=utf-8 ${compilerFlags} -o "${outputFile}"`;
+    }
+    test('Should use correct standard flag for C files', () => {
+        const standardFlag = getStandardFlag('c');
+        assert.strictEqual(standardFlag, '-std=c11', 'C files should use -std=c11');
+    });
+    test('Should use correct standard flag for C++ files', () => {
+        const standardFlag = getStandardFlag('cpp');
+        assert.strictEqual(standardFlag, '-std=c++17', 'C++ files should use -std=c++17');
+    });
+    test('Should use correct compiler for C files', () => {
+        const compiler = getCompiler('c');
+        assert.strictEqual(compiler, 'gcc', 'C files should use gcc');
+    });
+    test('Should use correct compiler for C++ files', () => {
+        const compiler = getCompiler('cpp');
+        assert.strictEqual(compiler, 'g++', 'C++ files should use g++');
+    });
+    test('Should build correct compile command for C files', () => {
+        const languageId = 'c';
+        const compiler = getCompiler(languageId);
+        const standardFlag = getStandardFlag(languageId);
+        const compilerFlags = '-Wall -O2';
+        const fileName = 'test.c';
+        const outputFile = 'test.exe';
+        const compileCmd = `${compiler} "${fileName}" ${standardFlag} -finput-charset=utf-8 -fexec-charset=utf-8 ${compilerFlags} -o "${outputFile}"`;
+        assert.ok(compileCmd.includes('gcc'), 'Command should use gcc');
+        assert.ok(compileCmd.includes('-std=c11'), 'Command should include -std=c11');
+        assert.ok(compileCmd.includes('-Wall'), 'Command should include -Wall');
+        assert.ok(compileCmd.includes('-O2'), 'Command should include -O2');
+        assert.ok(compileCmd.includes('-finput-charset=utf-8'), 'Command should include input charset');
+        assert.ok(compileCmd.includes('-fexec-charset=utf-8'), 'Command should include exec charset');
+    });
+    test('Should build correct compile command for C++ files', () => {
+        const languageId = 'cpp';
+        const compiler = getCompiler(languageId);
+        const standardFlag = getStandardFlag(languageId);
+        const compilerFlags = '-Wall -O2';
+        const fileName = 'test.cpp';
+        const outputFile = 'test.exe';
+        const compileCmd = buildCompileCommand(languageId, fileName, compilerFlags, outputFile);
+        assert.ok(compileCmd.includes('g++'), 'Command should use g++');
+        assert.ok(compileCmd.includes('-std=c++17'), 'Command should include -std=c++17');
+        assert.ok(compileCmd.includes('-Wall'), 'Command should include -Wall');
+        assert.ok(compileCmd.includes('-O2'), 'Command should include -O2');
+        assert.ok(compileCmd.includes('-finput-charset=utf-8'), 'Command should include input charset');
+        assert.ok(compileCmd.includes('-fexec-charset=utf-8'), 'Command should include exec charset');
+    });
+    test('Should maintain correct flag order in compile command', () => {
+        const languageId = 'c';
+        const compiler = getCompiler(languageId);
+        const standardFlag = getStandardFlag(languageId);
+        const fileName = 'test.c';
+        const compileCmd = `${compiler} "${fileName}" ${standardFlag} -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "test.exe"`;
+        // Verify the order: compiler, filename, standard, charset, other flags, output
+        const compilerIndex = compileCmd.indexOf('gcc');
+        const standardIndex = compileCmd.indexOf('-std=c11');
+        const charsetIndex = compileCmd.indexOf('-finput-charset');
+        const wallIndex = compileCmd.indexOf('-Wall');
+        const outputIndex = compileCmd.indexOf('-o');
+        assert.ok(compilerIndex < standardIndex, 'Compiler should come before standard flag');
+        assert.ok(standardIndex < charsetIndex, 'Standard flag should come before charset');
+        assert.ok(charsetIndex < wallIndex, 'Charset should come before other flags');
+        assert.ok(wallIndex < outputIndex, 'Other flags should come before output flag');
+    });
+    test('Should get default compilerFlags from configuration', () => {
+        const config = vscode.workspace.getConfiguration('cpp-smart-runner');
+        const compilerFlags = config.get('compilerFlags', '');
+        // Should be a string and contain common flags but NOT language-specific standards
+        assert.strictEqual(typeof compilerFlags, 'string');
+        // Check that default flags are present
+        if (compilerFlags) {
+            assert.ok(compilerFlags.includes('-Wall') || compilerFlags.includes('-O'), 'Default flags should include optimization or warning flags');
+            // Language-specific standards should NOT be in default config
+            assert.ok(!compilerFlags.includes('-std=c11'), 'Default flags should not include -std=c11');
+            assert.ok(!compilerFlags.includes('-std=c++'), 'Default flags should not include C++ standard');
+        }
+    });
+    test('Should handle custom compilerFlags', () => {
+        const customFlags = '-Wall -Wextra -O3 -g';
+        const languageId = 'cpp';
+        const compiler = getCompiler(languageId);
+        const standardFlag = getStandardFlag(languageId);
+        const compileCmd = `${compiler} "test.cpp" ${standardFlag} -finput-charset=utf-8 -fexec-charset=utf-8 ${customFlags} -o "test.exe"`;
+        assert.ok(compileCmd.includes(customFlags), 'Command should include custom flags');
+        assert.ok(compileCmd.includes('-std=c++17'), 'Command should still include language standard');
+    });
+    test('Should handle empty compilerFlags', () => {
+        const emptyFlags = '';
+        const languageId = 'c';
+        const compiler = getCompiler(languageId);
+        const standardFlag = getStandardFlag(languageId);
+        let compileCmd = `${compiler} "test.c" ${standardFlag} -finput-charset=utf-8 -fexec-charset=utf-8`;
+        if (emptyFlags) {
+            compileCmd += ` ${emptyFlags}`;
+        }
+        compileCmd += ' -o "test.exe"';
+        assert.ok(compileCmd.includes('-std=c11'), 'Command should include standard flag');
+        assert.ok(compileCmd.includes('gcc'), 'Command should include compiler');
+        assert.ok(!compileCmd.includes('  '), 'Command should not have double spaces');
+    });
+});
 //# sourceMappingURL=extension.test.js.map

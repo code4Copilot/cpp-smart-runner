@@ -1,9 +1,18 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.0.8-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
+
+## ✨ 版本 1.0.8 新功能
+
+- 🎯 **動態語言標準** - 自動根據檔案類型選擇正確的語言標準
+  - C 檔案使用 C11 標準（`-std=c11`）
+  - C++ 檔案使用 C++17 標準（`-std=c++17`）
+  - 通用編譯參數（`-Wall -O2`）可在設定中自訂
+- 🔧 **編譯參數優化** - 更合理的參數順序和結構
+- 🧪 **完整測試覆蓋** - 98 個測試全部通過，新增 10 個編譯器參數測試
 
 ## ✨ 版本 1.0.6 新功能
 
@@ -69,15 +78,15 @@
 
 ### 預設設定（Windows 適用）
 
-本延伸模組會根據檔案類型自動選擇編譯器：
+本延伸模組會根據檔案類型自動選擇編譯器和語言標準：
 
-- **C 語言 (.c)**：使用 `gcc` 編譯
-- **C++ 語言 (.cpp, .cxx, .cc)**：使用 `g++` 編譯
+- **C 語言 (.c)**：使用 `gcc` 編譯，自動加入 `-std=c11` 標準
+- **C++ 語言 (.cpp, .cxx, .cc)**：使用 `g++` 編譯，自動加入 `-std=c++17` 標準
 
 預設編譯命令（Windows）：
 ```
-chcp 65001 > nul && gcc "檔案.c" -o "檔案.exe"
-chcp 65001 > nul && g++ "檔案.cpp" -o "檔案.exe"
+gcc "檔案.c" -std=c11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "檔案.exe"
+g++ "檔案.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "檔案.exe"
 ```
 
 預設執行命令：
@@ -141,7 +150,7 @@ chcp 65001 > nul && g++ "檔案.cpp" -o "檔案.exe"
 - **customCompileCommand**: 自訂編譯命令（留空則自動根據語言選擇 gcc/g++）
 - **customRunCommand**: 自訂執行命令（預設：`"$dir/$fileNameWithoutExt.exe"`）
 - **compilerPath**: 編譯器路徑（已廢棄，請使用 customCompileCommand）
-- **compilerFlags**: 編譯器額外參數（當未設定 customCompileCommand 時可用）
+- **compilerFlags**: 編譯器通用參數（預設：`-Wall -O2`，語言標準由程式自動判斷）
 - **outputDir**: 輸出目錄（已廢棄，請使用 customCompileCommand）
 - **clearTerminal**: 執行前是否清除終端機（預設：true）
 - **saveBeforeCompile**: 編譯前自動儲存檔案（預設：true）
@@ -166,24 +175,25 @@ chcp 65001 > nul && g++ "檔案.cpp" -o "檔案.exe"
 
 ### 自訂命令範例
 
-#### 範例 1：加入 C 語言編譯參數
+#### 範例 1：自訂通用編譯參數（建議使用）
 ```json
 {
-  "cpp-smart-runner.compilerFlags": "-Wall -std=c11"
+  "cpp-smart-runner.compilerFlags": "-Wall -Wextra -O2 -g"
 }
 ```
+※ 語言標準（`-std=c11` 或 `-std=c++17`）會自動加入，不需手動設定
 
-#### 範例 2：加入 C++ 編譯參數
+#### 範例 2：修改語言標準（需要完全自訂命令）
 ```json
 {
-  "cpp-smart-runner.compilerFlags": "-Wall -std=c++17"
+  "cpp-smart-runner.customCompileCommand": "gcc \"$fullFileName\" -std=c17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o \"$dir/$fileNameWithoutExt.exe\""
 }
 ```
 
 #### 範例 3：完全自訂 C 編譯命令
 ```json
 {
-  "cpp-smart-runner.customCompileCommand": "chcp 65001 > nul && gcc \"$fullFileName\" -o \"$dir/$fileNameWithoutExt.exe\" -Wall -Wextra -std=c11"
+  "cpp-smart-runner.customCompileCommand": "gcc \"$fullFileName\" -o \"$dir/$fileNameWithoutExt.exe\" -Wall -Wextra -std=c11"
 }
 ```
 

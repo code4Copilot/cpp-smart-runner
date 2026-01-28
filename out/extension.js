@@ -112,25 +112,42 @@ function detectEncoding(buffer) {
     if (buffer.length >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
         return 'utf8';
     }
-    // 簡單啟發式判斷 Big5 vs GBK
+    // 改進的 Big5 vs GBK 判斷邏輯
     let big5Score = 0;
     let gbkScore = 0;
+    let big5SpecificScore = 0; // Big5 特有字節範圍
     for (let i = 0; i < Math.min(buffer.length - 1, 1000); i++) {
         const byte1 = buffer[i];
         const byte2 = buffer[i + 1];
-        // Big5 範圍
+        // Big5 特有範圍 (更嚴格的判斷)
+        // Big5 第一字節: 0xA1-0xF9
+        // Big5 第二字節: 0x40-0x7E 或 0x80-0xFE (但不是 0x7F)
         if (byte1 >= 0xA1 && byte1 <= 0xF9) {
             if ((byte2 >= 0x40 && byte2 <= 0x7E) || (byte2 >= 0x80 && byte2 <= 0xFE)) {
                 big5Score++;
+                // Big5 特有的第二字節範圍 (0x40-0x7E)，GBK 較少使用
+                if (byte2 >= 0x40 && byte2 <= 0x7E && byte2 !== 0x7F) {
+                    big5SpecificScore += 2; // 更高權重
+                }
             }
         }
-        // GBK 範圍
-        if (byte1 >= 0x81 && byte1 <= 0xFE && byte2 >= 0x40 && byte2 <= 0xFE) {
-            gbkScore++;
+        // GBK 特有範圍
+        // GBK 第一字節: 0x81-0xFE
+        // GBK 第二字節: 0x40-0xFE
+        // 但要排除 Big5 的高分區域
+        if (byte1 >= 0x81 && byte1 <= 0xA0) { // 0x81-0xA0 是 GBK 特有，Big5 從 0xA1 開始
+            if (byte2 >= 0x40 && byte2 <= 0xFE && byte2 !== 0x7F) {
+                gbkScore += 2; // GBK 特有區域給更高分
+            }
+        }
+        else if (byte1 >= 0xA1 && byte1 <= 0xFE && byte2 >= 0x40 && byte2 <= 0xFE) {
+            gbkScore++; // 重疊區域只給基本分
         }
     }
-    if (big5Score > gbkScore && big5Score > 5) {
-        return 'big5';
+    // 判斷邏輯：優先考慮特有特徵
+    const totalBig5 = big5Score + big5SpecificScore;
+    if (big5SpecificScore > 3 || (totalBig5 > gbkScore && big5Score > 3)) {
+        return 'big5'; // 有 Big5 特徵或總分更高
     }
     else if (gbkScore > 5) {
         return 'gbk';
@@ -288,8 +305,10 @@ async function compileCurrentFile() {
         const compilerFlags = config.get('compilerFlags', '');
         const outputExt = isWindows ? '.exe' : '';
         const outputFile = path.join(vars.dir, `${vars.fileNameWithoutExt}${outputExt}`);
+        // 動態判斷語言標準
+        const standardFlag = languageId === 'cpp' ? '-std=c++17' : '-std=c11';
         // 組合編譯命令
-        let compileCmd = `${compiler} "${vars.fullFileName}"`;
+        let compileCmd = `${compiler} "${vars.fullFileName}" ${standardFlag}`;
         // 加入 UTF-8 編碼支援參數
         compileCmd += ' -finput-charset=utf-8 -fexec-charset=utf-8';
         if (compilerFlags) {
