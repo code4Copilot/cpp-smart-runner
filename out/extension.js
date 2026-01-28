@@ -287,7 +287,7 @@ async function compileCurrentFile() {
         const compiler = languageId === 'cpp' ? 'g++' : 'gcc';
         const compilerFlags = config.get('compilerFlags', '');
         const outputExt = isWindows ? '.exe' : '';
-        const outputFile = `${vars.dir}/${vars.fileNameWithoutExt}${outputExt}`;
+        const outputFile = path.join(vars.dir, `${vars.fileNameWithoutExt}${outputExt}`);
         // 組合編譯命令
         let compileCmd = `${compiler} "${vars.fullFileName}"`;
         // 加入 UTF-8 編碼支援參數

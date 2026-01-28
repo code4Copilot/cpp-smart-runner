@@ -304,7 +304,7 @@ async function compileCurrentFile(): Promise<boolean> {
         const compiler = languageId === 'cpp' ? 'g++' : 'gcc';
         const compilerFlags = config.get<string>('compilerFlags', '');
         const outputExt = isWindows ? '.exe' : '';
-        const outputFile = `${vars.dir}/${vars.fileNameWithoutExt}${outputExt}`;
+        const outputFile = path.join(vars.dir, `${vars.fileNameWithoutExt}${outputExt}`);
         
         // 組合編譯命令
         let compileCmd = `${compiler} "${vars.fullFileName}"`;
