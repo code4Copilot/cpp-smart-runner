@@ -330,6 +330,7 @@ async function compileCurrentFile(): Promise<boolean> {
         const { stdout, stderr } = await execAsync(compileCommand, {
             encoding: 'utf8',
             maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             env: { ...process.env, LANG: 'en_US.UTF-8' } // 確保 UTF-8 環境
         });
         
@@ -459,10 +460,9 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         }
     }
     
-    // 建立終端機並執行
+    // 建立終端機並執行（使用使用者的預設終端機）
     const terminal = vscode.window.createTerminal({
-        name: 'C/C++ Runner',
-        shellPath: process.platform === 'win32' ? 'cmd.exe' : undefined
+        name: 'C/C++ Runner'
     });
     terminal.show();
     
@@ -479,8 +479,29 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         outputChannel.appendLine(`執行命令: ${execCommand}`);
     }
     
-    // ⚠️ 移除 chcp 65001 (因為檔案已是 UTF-8,不需要再設定)
+    // Windows 環境設定 UTF-8（根據終端機類型使用對應語法）
+    if (isWindows) {
+        const chcpCommand = getChcpCommand();
+        terminal.sendText(chcpCommand, true);
+    }
+    
     terminal.sendText(execCommand);
+}
+
+function getChcpCommand(): string {
+    // 偵測終端機類型並返回對應的 UTF-8 設定命令
+    const shellPath = (vscode.env.shell || '').toLowerCase();
+    
+    // 檢查是否為 PowerShell（包含 powershell.exe 和 pwsh.exe）
+    const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+    
+    if (isPowerShell) {
+        // PowerShell 語法：將錯誤和輸出都重定向到 Out-Null
+        return 'chcp 65001 2>&1 | Out-Null';
+    } else {
+        // CMD 語法：使用 >nul 重定向
+        return 'chcp 65001 >nul 2>&1';
+    }
 }
 
 function getCompiler(languageId: string, config: vscode.WorkspaceConfiguration): string {

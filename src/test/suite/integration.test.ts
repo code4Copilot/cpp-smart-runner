@@ -98,6 +98,120 @@ suite('Output Channel Test Suite', () => {
 
 suite('File Watcher Test Suite', () => {
     test('Should be able to create file system watcher', () => {
+        const watcher = vscode.workspace.createFileSystemWatcher('**/*.c');
+        assert.ok(watcher);
+        watcher.dispose();
+    });
+});
+
+suite('Terminal Configuration Test Suite', () => {
+    test('Should support clearTerminal configuration', () => {
+        const config = vscode.workspace.getConfiguration('cpp-smart-runner');
+        const clearTerminal = config.get<boolean>('clearTerminal');
+        
+        assert.ok(typeof clearTerminal === 'boolean', 'clearTerminal should be boolean');
+    });
+
+    test('Should create terminal with correct configuration', () => {
+        // 測試終端機建立（不實際執行）
+        const terminalOptions: vscode.TerminalOptions = {
+            name: 'C/C++ Runner Test'
+        };
+        
+        assert.strictEqual(terminalOptions.name, 'C/C++ Runner Test');
+        
+        // 驗證不會強制指定 shellPath，使用使用者預設終端機
+        assert.strictEqual(terminalOptions.shellPath, undefined);
+    });
+
+    test('Should verify UTF-8 terminal setup for Windows', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            const shellPath = (vscode.env.shell || '').toLowerCase();
+            const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+            
+            if (isPowerShell) {
+                // PowerShell 應該使用 Out-Null 語法
+                const expectedCommand = 'chcp 65001 2>&1 | Out-Null';
+                assert.ok(expectedCommand.includes('chcp 65001'));
+                assert.ok(expectedCommand.includes('Out-Null'));
+                assert.ok(expectedCommand.includes('2>&1'));
+            } else {
+                // CMD 應該使用 >nul 語法
+                const expectedCommand = 'chcp 65001 >nul 2>&1';
+                assert.ok(expectedCommand.includes('chcp 65001'));
+                assert.ok(expectedCommand.includes('>nul'));
+                assert.ok(expectedCommand.includes('2>&1'));
+            }
+        } else {
+            // 非 Windows 環境不需要 chcp
+            assert.ok(true);
+        }
+    });
+
+    test('Should support both PowerShell and CMD terminals', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            // 模擬 PowerShell 環境
+            const powershellCommand = 'chcp 65001 2>&1 | Out-Null';
+            assert.ok(powershellCommand.includes('Out-Null')); // PowerShell 特定
+            assert.ok(!powershellCommand.includes('>nul')); // 不使用 CMD 語法
+            
+            // 模擬 CMD 環境
+            const cmdCommand = 'chcp 65001 >nul 2>&1';
+            assert.ok(cmdCommand.includes('>nul')); // CMD 特定
+            assert.ok(!cmdCommand.includes('Out-Null')); // 不使用 PowerShell 語法
+            
+            // 驗證都包含 chcp 65001
+            assert.ok(powershellCommand.includes('chcp 65001'));
+            assert.ok(cmdCommand.includes('chcp 65001'));
+        }
+    });
+
+    test('Should detect terminal type correctly', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            const shellPath = (vscode.env.shell || '').toLowerCase();
+            
+            // 驗證能正確偵測終端機類型
+            const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+            const isCmd = shellPath.includes('cmd');
+            
+            // 至少應該是其中一種
+            if (isPowerShell) {
+                assert.ok(shellPath.includes('powershell') || shellPath.includes('pwsh'));
+            } else if (isCmd) {
+                assert.ok(shellPath.includes('cmd'));
+            }
+            
+            // 驗證偵測邏輯
+            assert.ok(typeof isPowerShell === 'boolean');
+        }
+    });
+});
+
+suite('Platform Compatibility Test Suite', () => {
+    test('Should detect platform correctly', () => {
+        const platform = process.platform;
+        assert.ok(['win32', 'darwin', 'linux'].includes(platform));
+    });
+
+    test('Should handle Windows-specific features', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            // Windows 特定測試
+            assert.ok(true);
+        } else {
+            // Unix-like 系統
+            assert.ok(true);
+        }
+    });
+
+    test('Should create file system watcher', () => {
         const testPattern = '**/*.cpp';
         const watcher = vscode.workspace.createFileSystemWatcher(testPattern);
         

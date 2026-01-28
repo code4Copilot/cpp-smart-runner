@@ -39,6 +39,18 @@
 			"type": "shell",
 			"command": "Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; npm test",
 			"group": "test"
+		},
+		{
+			"label": "Compile",
+			"type": "shell",
+			"command": "Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; npm run compile",
+			"group": "build"
+		},
+		{
+			"label": "Compile",
+			"type": "shell",
+			"command": "Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; npm run compile",
+			"group": "build"
 		}
 	]
 }

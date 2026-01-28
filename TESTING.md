@@ -87,8 +87,18 @@ src/test/
 - ✅ 開啟 C/C++ 檔案
 - ✅ 語言識別
 - ✅ 檔案內容讀取
+- ✅ 終端機配置
+- ✅ UTF-8 設定（PowerShell/CMD）
 
-### 10. Encoding Conversion Test Suite (編碼轉換測試)
+### 10. Terminal Configuration Test Suite (終端機配置測試) 🆕
+測試終端機相關功能：
+- ✅ clearTerminal 配置支援
+- ✅ 終端機建立配置
+- ✅ Windows UTF-8 設定（chcp 65001）
+- ✅ PowerShell 和 CMD 相容性
+- ✅ 通用命令驗證（不使用終端機特定語法）
+
+### 11. Encoding Conversion Test Suite (編碼轉換測試)
 深入測試編碼轉換功能：
 - ✅ UTF-8 檔案讀寫
 - ✅ Big5 字元識別

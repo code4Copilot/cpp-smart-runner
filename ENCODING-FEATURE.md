@@ -132,6 +132,20 @@ function tryDecodeWithFallback(buffer: Buffer): { content: string, encoding: str
 -finput-charset=utf-8 -fexec-charset=utf-8
 ```
 
+### 終端機 UTF-8 設定
+
+執行程式前自動設定終端機為 UTF-8（同時支援 PowerShell 和 CMD）：
+```bash
+# 在 Windows 終端機執行（PowerShell/CMD 通用）
+chcp 65001 >nul 2>&1
+```
+
+**特點**：
+- ✅ 自動偵測使用者的預設終端機
+- ✅ PowerShell 和 CMD 通用
+- ✅ 隱藏輸出訊息（`>nul 2>&1`）
+- ✅ 確保中文正確顯示
+
 ### Windows 終端機 UTF-8 設定
 執行前自動執行：
 ```
