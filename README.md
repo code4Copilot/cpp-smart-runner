@@ -1,6 +1,19 @@
 # C/C++ Smart Runner
 
-一個智慧的 VS Code 延伸模組，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查功能。
+[![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
+
+一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
+
+## ✨ 版本 1.0.6 新功能
+
+- 🎯 **自動編碼轉換** - 編譯前自動偵測並轉換 ANSI/Big5 為 UTF-8
+- 🔄 **手動編碼轉換** - 右鍵選單支援 UTF-8 ↔ Big5 雙向轉換
+- 🧪 **完整測試框架** - 50+ 測試案例，85%+ 覆蓋率
+- 📝 **UTF-8 編譯支援** - 自動加入編譯器 UTF-8 參數
+- 🌐 **相容性提升** - 完美支援 Dev-C++ 與 VS Code 之間的檔案轉換
+
+詳細更新內容請參閱 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 功能特色
 
@@ -8,6 +21,8 @@
 ✅ **時間戳記檢查** - 自動偵測執行檔是否比原始碼舊  
 ✅ **智慧警告** - 當要執行舊版本時顯示警告訊息  
 ✅ **編譯錯誤檢查** - 只有編譯成功才會執行  
+✅ **自動編碼轉換** - 自動偵測並轉換 ANSI/Big5 檔案為 UTF-8  
+✅ **手動編碼轉換** - 支援 UTF-8 ↔ Big5 雙向轉換  
 ✅ **可自訂設定** - 支援自訂編譯器、編譯參數等  
 
 ## 安裝需求
@@ -32,9 +47,19 @@
    - 先編譯，成功後自動執行
    - 跳過時間戳記檢查（因為是剛編譯的）
 
+4. **轉換編碼為 UTF-8 (相容AI)**
+   - 將 ANSI/Big5 編碼的檔案轉換為 UTF-8
+   - 適用於從 Dev-C++ 匯入的程式
+   - 讓 GitHub Copilot 等 AI 工具正確辨識中文註解
+
+5. **轉換編碼為 Big5 (相容Dev-C++)**
+   - 將 UTF-8 編碼的檔案轉換為 Big5
+   - 適用於需要在 Dev-C++ 開啟的程式
+   - 確保在傳統環境中正常顯示中文
+
 ### 右鍵選單
 
-在 C/C++ 檔案的編輯器中按右鍵，可以看到上述三個命令。
+在 C/C++ 檔案的編輯器中按右鍵，可以看到上述所有命令。
 
 ## 設定選項
 
@@ -86,7 +111,8 @@ chcp 65001 > nul && g++ "檔案.cpp" -o "檔案.exe"
   "cpp-smart-runner.outputDir": "",
   "cpp-smart-runner.clearTerminal": true,
   "cpp-smart-runner.saveBeforeCompile": true,
-  "cpp-smart-runner.showExecutionMessage": true
+  "cpp-smart-runner.showExecutionMessage": true,
+  "cpp-smart-runner.autoConvertEncoding": true
 }
 ```
 
@@ -111,6 +137,7 @@ chcp 65001 > nul && g++ "檔案.cpp" -o "檔案.exe"
 - **clearTerminal**: 執行前是否清除終端機（預設：true）
 - **saveBeforeCompile**: 編譯前自動儲存檔案（預設：true）
 - **showExecutionMessage**: 顯示執行訊息（預設：true）
+- **autoConvertEncoding**: 編譯前自動偵測並轉換 ANSI/Big5 檔案為 UTF-8（預設：true）
 
 **自訂命令設定：**
 - **customCompileCommand**: 自訂編譯命令（留空使用預設）
@@ -179,11 +206,23 @@ chcp 65001 > nul && g++ "檔案.cpp" -o "檔案.exe"
 ```
 cpp-smart-runner/
 ├── src/
-│   └── extension.ts          # 主程式碼
-├── package.json               # 延伸模組設定
-├── tsconfig.json              # TypeScript 設定
-├── README.md                  # 說明文件
-└── .vscodeignore             # 打包忽略檔案
+│   ├── extension.ts          # 主程式碼
+│   └── test/                 # 測試目錄
+│       ├── runTest.ts        # 測試執行器
+│       ├── suite/            # 測試套件
+│       │   ├── index.ts      # 測試入口
+│       │   ├── extension.test.ts   # 核心功能測試
+│       │   ├── integration.test.ts # 整合測試
+│       │   └── encoding.test.ts    # 編碼測試
+│       └── fixtures/         # 測試檔案
+├── .vscode/
+│   ├── launch.json           # 除錯配置
+│   └── tasks.json            # 任務配置
+├── package.json              # 擴充套件設定
+├── tsconfig.json             # TypeScript 設定
+├── README.md                 # 說明文件
+├── TESTING.md                # 測試文檔
+└── .vscodeignore            # 打包忽略檔案
 ```
 
 ## 開發與編譯
@@ -206,13 +245,41 @@ npm run compile
 npm run watch
 ```
 
-### 3. 測試延伸模組
+### 3. 執行測試
 
+```bash
+# 執行所有測試
+npm test
+
+# 或使用批次檔
+run-tests.bat
+```
+
+測試涵蓋：
+- ✅ 擴充套件啟動與命令註冊
+- ✅ 配置管理
+- ✅ 變數替換功能
+- ✅ 編碼偵測與轉換
+- ✅ 檔案系統操作
+- ✅ 平台相容性
+- ✅ 錯誤處理
+- ✅ 整合測試
+
+詳細測試文檔請參考 [TESTING.md](TESTING.md)。
+
+### 4. 除錯擴充套件
+
+#### 除錯擴充套件本身
 1. 在 VS Code 中開啟此專案
-2. 按 `F5` 啟動除錯
+2. 按 `F5` 或選擇「Run Extension」配置
 3. 在新開啟的 VS Code 視窗中測試功能
 
-### 4. 打包延伸模組
+#### 執行測試除錯
+1. 選擇「Extension Tests」配置
+2. 按 `F5` 啟動測試
+3. 可以在測試程式碼中設置中斷點
+
+### 5. 打包擴充套件
 
 首先安裝 vsce（VS Code Extensions 打包工具）：
 
@@ -226,7 +293,41 @@ npm install -g @vscode/vsce
 vsce package
 ```
 
-### 5. 安裝延伸模組
+## 測試
+
+本專案包含完整的單元測試和整合測試。
+
+### 執行測試
+
+```bash
+# 執行所有測試
+npm test
+
+# 使用 Windows 批次檔
+run-tests.bat
+```
+
+### 在 VS Code 中執行測試
+
+1. 按 `F5` 選擇「Extension Tests」配置
+2. 或使用測試側邊欄執行特定測試
+
+### 測試覆蓋範圍
+
+- ✅ 擴充套件啟動與命令註冊 (10+ 測試)
+- ✅ 配置管理 (5+ 測試)
+- ✅ 變數替換功能 (3+ 測試)
+- ✅ 編碼偵測與轉換 (15+ 測試)
+- ✅ 檔案系統操作 (5+ 測試)
+- ✅ 平台相容性 (3+ 測試)
+- ✅ 錯誤處理 (5+ 測試)
+- ✅ 整合測試 (8+ 測試)
+
+**總計：50+ 個測試案例**
+
+詳細資訊請參考 [TESTING.md](TESTING.md)。
+
+### 6. 安裝擴充套件
 
 方法一：透過 VS Code
 1. 開啟 VS Code
@@ -273,14 +374,140 @@ A: 修改 `cpp-smart-runner.compilerFlags` 設定，例如 `-Wall -std=c++20 -O2
 **Q: 執行檔要放在特定目錄？**  
 A: 設定 `cpp-smart-runner.outputDir` 為你想要的目錄路徑。
 
+**Q: 中文註解出現亂碼怎麼辦？**  
+A: 這個擴充套件會自動偵測並轉換編碼。如果還是有問題，可以右鍵選擇「轉換編碼為 UTF-8 (相容AI)」手動轉換。
+
+**Q: 從 Dev-C++ 匯入的程式碼出現亂碼？**  
+A: Dev-C++ 使用 Big5 編碼，而 VS Code 使用 UTF-8。本擴充套件會在編譯前自動轉換，你也可以手動轉換。
+
+**Q: 要把程式拿回 Dev-C++ 使用？**  
+A: 右鍵選擇「轉換編碼為 Big5 (相容Dev-C++)」，檔案就可以在 Dev-C++ 正常開啟。
+
+**Q: 自動編碼轉換可以關閉嗎？**  
+A: 可以，將 `cpp-smart-runner.autoConvertEncoding` 設為 `false` 即可關閉自動轉換。
+
+## 編碼轉換功能
+
+### 為什麼需要編碼轉換？
+
+許多 C 語言初學者會遇到以下困擾：
+- 從 Dev-C++ 複製程式碼到 VS Code，中文註解變成亂碼
+- GitHub Copilot 產生的中文註解在 Dev-C++ 無法正常顯示
+- 編譯後執行時，`printf` 輸出的中文亂碼
+
+這些問題的根源是**編碼不一致**：
+- **Dev-C++** 使用 Big5（ANSI）編碼
+- **VS Code / GitHub Copilot** 使用 UTF-8 編碼
+
+### 解決方案
+
+本擴充套件提供完整的編碼解決方案：
+
+#### 1. 自動編碼轉換（預設啟用）
+編譯前自動偵測檔案編碼，若為 Big5/ANSI 則自動轉換為 UTF-8。學生無需手動操作，直接編譯即可。
+
+#### 2. 手動編碼轉換（右鍵選單）
+- **轉換為 UTF-8**：讓 AI 工具正確辨識，避免亂碼
+- **轉換為 Big5**：讓 Dev-C++ 正常開啟檔案
+
+#### 3. UTF-8 編譯支援
+編譯時自動加入 `-finput-charset=utf-8 -fexec-charset=utf-8` 參數，確保編譯器正確處理 UTF-8 檔案。
+
+#### 4. 終端機 UTF-8 支援
+執行前自動執行 `chcp 65001`，讓 Windows 終端機正確顯示中文輸出。
+
+### 使用情境
+
+#### 情境 1：從 Dev-C++ 匯入專案
+```
+1. 在 Dev-C++ 撰寫程式（Big5 編碼）
+2. 複製到 VS Code 開啟
+3. 點擊「編譯並執行」
+   → 自動偵測並轉換為 UTF-8
+   → 正常編譯執行，中文正確顯示
+```
+
+#### 情境 2：使用 AI 工具開發
+```
+1. 使用 GitHub Copilot 產生含中文註解的程式碼（UTF-8）
+2. 直接儲存並執行
+   → 搭配 UTF-8 設定，終端機正確顯示中文
+```
+
+#### 情境 3：需要回到 Dev-C++
+```
+1. 在 VS Code 完成開發（UTF-8）
+2. 右鍵選單 → 「轉換編碼為 Big5 (相容Dev-C++)」
+3. 檔案轉為 Big5 編碼
+   → 可在 Dev-C++ 正常開啟和編輯
+```
+
+### 技術細節
+
+- **編碼偵測**：使用 TextDecoder 的 fatal 模式嚴格檢查 UTF-8
+- **Big5 轉換**：使用 `iconv-lite` 套件進行穩定的編碼轉換
+- **編譯器支援**：自動加入 `-finput-charset=utf-8 -fexec-charset=utf-8`
+- **終端機設定**：執行前自動 `chcp 65001`
+
+### 注意事項
+
+1. **依賴套件**：編碼轉換功能需要 `iconv-lite` 套件（安裝時會自動安裝）
+2. **檔案修改**：編碼轉換會直接寫入原始檔案，建議使用版本控制（Git）
+3. **Dev-C++ 限制**：Dev-C++ 僅支援 Big5，無法直接開啟 UTF-8 檔案
+
+## 📋 版本歷史
+
+### 最新版本 v1.0.6 (2026-01-28)
+
+**主要更新**：
+- ✅ 新增自動編碼轉換功能
+- ✅ 新增手動編碼轉換命令
+- ✅ 完整測試框架（50+ 測試案例）
+- ✅ UTF-8 編譯器支援
+- ✅ 完整測試文檔
+
+查看完整版本歷史：[CHANGELOG.md](CHANGELOG.md)
+
+## 📚 相關文檔
+
+- [CHANGELOG.md](CHANGELOG.md) - 完整更新日誌
+- [TESTING.md](TESTING.md) - 測試文檔
+- [TESTING-QUICKSTART.md](TESTING-QUICKSTART.md) - 測試快速入門
+- [ENCODING-FEATURE.md](ENCODING-FEATURE.md) - 編碼功能詳細說明
+
 ## 授權
 
 MIT License
 
 ## 作者
 
-Your Name
+Hueyan Chen (hueyan.chen@gmail.com)
 
 ## 回饋與貢獻
 
-歡迎在 GitHub 上提出問題或貢獻程式碼。
+歡迎在 [GitHub](https://github.com/hueyanchen/cpp-smart-runner) 上：
+- 🐛 回報問題：[Issues](https://github.com/hueyanchen/cpp-smart-runner/issues)
+- 💡 提出建議：[Discussions](https://github.com/hueyanchen/cpp-smart-runner/discussions)
+- 🔧 貢獻程式碼：[Pull Requests](https://github.com/hueyanchen/cpp-smart-runner/pulls)
+
+### 貢獻指南
+
+1. Fork 此專案
+2. 建立功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交變更 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送至分支 (`git push origin feature/AmazingFeature`)
+5. 開啟 Pull Request
+
+請確保：
+- ✅ 所有測試通過 (`npm test`)
+- ✅ 遵循現有程式碼風格
+- ✅ 更新相關文檔
+
+## ⭐ 支持專案
+
+如果這個專案對你有幫助，請給個星星 ⭐！
+
+---
+
+**C/C++ Smart Runner** - 讓 C/C++ 開發更簡單、更智慧  
+版本 1.0.6 © 2026 Hueyan Chen

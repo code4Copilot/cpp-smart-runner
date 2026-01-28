@@ -1,9 +1,35 @@
 {
   "name": "cpp-smart-runner",
   "displayName": "C/C++ Smart Runner",
-  "description": "安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查",
-  "version": "1.0.5",
+  "description": "安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能",
+  "version": "1.0.6",
   "publisher": "hueyanchen",
+  "author": {
+    "name": "Hueyan Chen",
+    "email": "hueyan.chen@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "c",
+    "c++",
+    "cpp",
+    "compile",
+    "run",
+    "gcc",
+    "g++",
+    "encoding",
+    "utf8",
+    "big5",
+    "dev-c++"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hueyanchen/cpp-smart-runner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hueyanchen/cpp-smart-runner/issues"
+  },
+  "homepage": "https://github.com/hueyanchen/cpp-smart-runner#readme",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -31,6 +57,16 @@
         "command": "cpp-smart-runner.compileAndRun",
         "title": "編譯並執行C/C++程式",
         "icon": "$(run-all)"
+      },
+      {
+        "command": "cpp-smart-runner.convertToUtf8",
+        "title": "轉換為 UTF-8 編碼",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "cpp-smart-runner.convertToBig5",
+        "title": "轉換為 Big5 編碼",
+        "icon": "$(symbol-text)"
       }
     ],
     "keybindings": [
@@ -69,6 +105,16 @@
           "when": "resourceLangId == c || resourceLangId == cpp",
           "command": "cpp-smart-runner.compileAndRun",
           "group": "navigation@92"
+        },
+        {
+          "when": "resourceLangId == c || resourceLangId == cpp",
+          "command": "cpp-smart-runner.convertToUtf8",
+          "group": "navigation@93"
+        },
+        {
+          "when": "resourceLangId == c || resourceLangId == cpp",
+          "command": "cpp-smart-runner.convertToBig5",
+          "group": "navigation@94"
         }
       ]
     },
@@ -84,13 +130,17 @@
           "type": "string",
           "default": "",
           "description": "自訂編譯命令（支援變數：$fileName, $fileNameWithoutExt, $dir, $fullFileName）留空則根據語言自動選擇 gcc/g++",
-          "examples": ["gcc \"$fullFileName\" -o \"$dir/$fileNameWithoutExt\""]
+          "examples": [
+            "gcc \"$fullFileName\" -o \"$dir/$fileNameWithoutExt\""
+          ]
         },
         "cpp-smart-runner.customRunCommand": {
           "type": "string",
           "default": "\"$dir/$fileNameWithoutExt.exe\"",
           "description": "自訂執行命令（支援變數：$fileName, $fileNameWithoutExt, $dir, $fullFileName）",
-          "examples": ["\"$dir/$fileNameWithoutExt\""]
+          "examples": [
+            "\"$dir/$fileNameWithoutExt\""
+          ]
         },
         "cpp-smart-runner.compilerPath": {
           "type": "string",
@@ -121,6 +171,11 @@
           "type": "boolean",
           "default": true,
           "description": "顯示執行訊息"
+        },
+        "cpp-smart-runner.autoConvertEncoding": {
+          "type": "boolean",
+          "default": true,
+          "description": "編譯前自動偵測並轉換 ANSI/Big5 檔案為 UTF-8"
         }
       }
     }
@@ -130,14 +185,24 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "npm run compile && npm test"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.6",
     "@types/node": "^18.x",
     "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/test-electron": "^2.3.9",
     "eslint": "^8.0.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.3.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.6.3"
   }
 }

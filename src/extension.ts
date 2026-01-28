@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { TextDecoder, TextEncoder } from 'util';
 
 const execAsync = promisify(exec);
 
@@ -37,7 +38,19 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
     
-    context.subscriptions.push(compileCommand, runCommand, compileAndRunCommand, outputChannel);
+    // 註冊手動轉換編碼命令
+    let convertToUtf8Command = vscode.commands.registerCommand('cpp-smart-runner.convertToUtf8', async () => {
+        await handleEncodingConversion('utf8');
+    });
+
+    let convertToBig5Command = vscode.commands.registerCommand('cpp-smart-runner.convertToBig5', async () => {
+        await handleEncodingConversion('big5');
+    });
+    
+    context.subscriptions.push(
+        compileCommand, runCommand, compileAndRunCommand,
+        convertToUtf8Command, convertToBig5Command, outputChannel
+    );
     
     outputChannel.appendLine('C/C++ Smart Runner 已啟動');
 }
@@ -68,6 +81,68 @@ function replaceVariables(command: string, vars: CommandVariables): string {
         .replace(/\$dir/g, vars.dir);
 }
 
+// 編碼檢查與轉換核心邏輯
+async function handleEncodingConversion(target: 'utf8' | 'big5') {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('沒有開啟的檔案');
+        return;
+    }
+
+    const document = editor.document;
+    const filePath = document.fileName;
+    
+    if (!fs.existsSync(filePath)) {
+        vscode.window.showErrorMessage('檔案不存在');
+        return;
+    }
+
+    const buffer = fs.readFileSync(filePath);
+
+    try {
+        if (target === 'utf8') {
+            // 偵測是否已經是 UTF-8
+            if (isUtf8(buffer)) {
+                vscode.window.showInformationMessage('檔案已經是 UTF-8 編碼');
+                return;
+            }
+            const content = new TextDecoder('big5').decode(buffer);
+            fs.writeFileSync(filePath, content, 'utf8');
+            vscode.window.showInformationMessage('✅ 已成功轉換為 UTF-8 (相容 AI/VS Code)');
+            
+            // 重新載入檔案以顯示正確內容
+            await vscode.commands.executeCommand('workbench.action.files.revert');
+        } else {
+            // 轉換為 Big5
+            const content = document.getText();
+            
+            // 優先使用 iconv-lite 套件
+            try {
+                const iconv = require('iconv-lite');
+                const big5Buffer = iconv.encode(content, 'big5');
+                fs.writeFileSync(filePath, big5Buffer);
+                vscode.window.showInformationMessage('💾 已成功轉換為 Big5 (相容 Dev-C++)');
+                
+                // 重新載入檔案
+                await vscode.commands.executeCommand('workbench.action.files.revert');
+            } catch (requireError) {
+                vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行：npm install iconv-lite');
+            }
+        }
+    } catch (err: any) {
+        vscode.window.showErrorMessage(`編碼轉換失敗：${err.message}`);
+    }
+}
+
+function isUtf8(buffer: Buffer): boolean {
+    try {
+        new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 async function compileCurrentFile(): Promise<boolean> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -91,6 +166,24 @@ async function compileCurrentFile(): Promise<boolean> {
     }
     
     const sourceFile = document.fileName;
+    
+    // 自動偵測並轉換為 UTF-8 (核心自動化功能)
+    if (config.get<boolean>('autoConvertEncoding', true)) {
+        try {
+            const buffer = fs.readFileSync(sourceFile);
+            if (!isUtf8(buffer)) {
+                const content = new TextDecoder('big5').decode(buffer);
+                fs.writeFileSync(sourceFile, content, 'utf8');
+                outputChannel.appendLine('>>> 偵測到 ANSI (Big5) 檔案，已自動優化為 UTF-8');
+                // 重新載入檔案
+                await vscode.commands.executeCommand('workbench.action.files.revert');
+            }
+        } catch (err) {
+            // 編碼轉換失敗不影響編譯流程
+            outputChannel.appendLine(`>>> 編碼偵測失敗，使用原始編碼繼續編譯`);
+        }
+    }
+    
     const vars = getCommandVariables(sourceFile);
     
     // 除錯輸出
@@ -118,6 +211,8 @@ async function compileCurrentFile(): Promise<boolean> {
         
         // 組合編譯命令
         let compileCmd = `${compiler} "${vars.fullFileName}"`;
+        // 加入 UTF-8 編碼支援參數
+        compileCmd += ' -finput-charset=utf-8 -fexec-charset=utf-8';
         if (compilerFlags) {
             compileCmd += ` ${compilerFlags}`;
         }

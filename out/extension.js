@@ -15,20 +15,32 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deactivate = exports.activate = void 0;
+exports.activate = activate;
+exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const child_process_1 = require("child_process");
 const util_1 = require("util");
+const util_2 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 let outputChannel;
 function activate(context) {
@@ -48,10 +60,16 @@ function activate(context) {
             await runCurrentFile(true);
         }
     });
-    context.subscriptions.push(compileCommand, runCommand, compileAndRunCommand, outputChannel);
+    // 註冊手動轉換編碼命令
+    let convertToUtf8Command = vscode.commands.registerCommand('cpp-smart-runner.convertToUtf8', async () => {
+        await handleEncodingConversion('utf8');
+    });
+    let convertToBig5Command = vscode.commands.registerCommand('cpp-smart-runner.convertToBig5', async () => {
+        await handleEncodingConversion('big5');
+    });
+    context.subscriptions.push(compileCommand, runCommand, compileAndRunCommand, convertToUtf8Command, convertToBig5Command, outputChannel);
     outputChannel.appendLine('C/C++ Smart Runner 已啟動');
 }
-exports.activate = activate;
 function getCommandVariables(sourceFile) {
     const ext = path.extname(sourceFile);
     const fileName = path.basename(sourceFile);
@@ -75,6 +93,63 @@ function replaceVariables(command, vars) {
         .replace(/\$fileName/g, vars.fileName)
         .replace(/\$dir/g, vars.dir);
 }
+// 編碼檢查與轉換核心邏輯
+async function handleEncodingConversion(target) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('沒有開啟的檔案');
+        return;
+    }
+    const document = editor.document;
+    const filePath = document.fileName;
+    if (!fs.existsSync(filePath)) {
+        vscode.window.showErrorMessage('檔案不存在');
+        return;
+    }
+    const buffer = fs.readFileSync(filePath);
+    try {
+        if (target === 'utf8') {
+            // 偵測是否已經是 UTF-8
+            if (isUtf8(buffer)) {
+                vscode.window.showInformationMessage('檔案已經是 UTF-8 編碼');
+                return;
+            }
+            const content = new util_2.TextDecoder('big5').decode(buffer);
+            fs.writeFileSync(filePath, content, 'utf8');
+            vscode.window.showInformationMessage('✅ 已成功轉換為 UTF-8 (相容 AI/VS Code)');
+            // 重新載入檔案以顯示正確內容
+            await vscode.commands.executeCommand('workbench.action.files.revert');
+        }
+        else {
+            // 轉換為 Big5
+            const content = document.getText();
+            // 優先使用 iconv-lite 套件
+            try {
+                const iconv = require('iconv-lite');
+                const big5Buffer = iconv.encode(content, 'big5');
+                fs.writeFileSync(filePath, big5Buffer);
+                vscode.window.showInformationMessage('💾 已成功轉換為 Big5 (相容 Dev-C++)');
+                // 重新載入檔案
+                await vscode.commands.executeCommand('workbench.action.files.revert');
+            }
+            catch (requireError) {
+                vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行：npm install iconv-lite');
+            }
+        }
+    }
+    catch (err) {
+        vscode.window.showErrorMessage(`編碼轉換失敗：${err.message}`);
+    }
+}
+function isUtf8(buffer) {
+    try {
+        new util_2.TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 async function compileCurrentFile() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -93,6 +168,23 @@ async function compileCurrentFile() {
         await document.save();
     }
     const sourceFile = document.fileName;
+    // 自動偵測並轉換為 UTF-8 (核心自動化功能)
+    if (config.get('autoConvertEncoding', true)) {
+        try {
+            const buffer = fs.readFileSync(sourceFile);
+            if (!isUtf8(buffer)) {
+                const content = new util_2.TextDecoder('big5').decode(buffer);
+                fs.writeFileSync(sourceFile, content, 'utf8');
+                outputChannel.appendLine('>>> 偵測到 ANSI (Big5) 檔案，已自動優化為 UTF-8');
+                // 重新載入檔案
+                await vscode.commands.executeCommand('workbench.action.files.revert');
+            }
+        }
+        catch (err) {
+            // 編碼轉換失敗不影響編譯流程
+            outputChannel.appendLine(`>>> 編碼偵測失敗，使用原始編碼繼續編譯`);
+        }
+    }
     const vars = getCommandVariables(sourceFile);
     // 除錯輸出
     outputChannel.appendLine('==================== 變數除錯 ====================');
@@ -117,6 +209,8 @@ async function compileCurrentFile() {
         const outputFile = `${vars.dir}/${vars.fileNameWithoutExt}${outputExt}`;
         // 組合編譯命令
         let compileCmd = `${compiler} "${vars.fullFileName}"`;
+        // 加入 UTF-8 編碼支援參數
+        compileCmd += ' -finput-charset=utf-8 -fexec-charset=utf-8';
         if (compilerFlags) {
             compileCmd += ` ${compilerFlags}`;
         }
@@ -304,5 +398,4 @@ function deactivate() {
         outputChannel.dispose();
     }
 }
-exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map

@@ -11,3 +11,11 @@ vsc-extension-quickstart.md
 node_modules/**
 .github/**
 *.vsix
+**/test/**
+TESTING.md
+ENCODING-FEATURE.md
+IMPLEMENTATION-SUMMARY.md
+INSTALL.md
+install-deps.bat
+setup-and-test.bat
+test-encoding.c
