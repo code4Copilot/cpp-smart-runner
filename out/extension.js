@@ -85,7 +85,7 @@ function getCommandVariables(sourceFile) {
     };
 }
 function replaceVariables(command, vars) {
-    // 必須先替換較長的變數名稱，避免被較短的覆蓋
+    // 必須先替換較長的變數名稱,避免被較短的覆蓋
     return command
         .replace(/\$workspaceFolder/g, vars.workspaceFolder)
         .replace(/\$fullFileName/g, vars.fullFileName)
@@ -93,7 +93,85 @@ function replaceVariables(command, vars) {
         .replace(/\$fileName/g, vars.fileName)
         .replace(/\$dir/g, vars.dir);
 }
-// 編碼檢查與轉換核心邏輯
+// ===== 改進的編碼檢測函數 =====
+function isUtf8(buffer) {
+    try {
+        new util_2.TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+function detectEncoding(buffer) {
+    // 檢查是否為 UTF-8
+    if (isUtf8(buffer)) {
+        return 'utf8';
+    }
+    // 檢查 UTF-8 BOM
+    if (buffer.length >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+        return 'utf8';
+    }
+    // 簡單啟發式判斷 Big5 vs GBK
+    let big5Score = 0;
+    let gbkScore = 0;
+    for (let i = 0; i < Math.min(buffer.length - 1, 1000); i++) {
+        const byte1 = buffer[i];
+        const byte2 = buffer[i + 1];
+        // Big5 範圍
+        if (byte1 >= 0xA1 && byte1 <= 0xF9) {
+            if ((byte2 >= 0x40 && byte2 <= 0x7E) || (byte2 >= 0x80 && byte2 <= 0xFE)) {
+                big5Score++;
+            }
+        }
+        // GBK 範圍
+        if (byte1 >= 0x81 && byte1 <= 0xFE && byte2 >= 0x40 && byte2 <= 0xFE) {
+            gbkScore++;
+        }
+    }
+    if (big5Score > gbkScore && big5Score > 5) {
+        return 'big5';
+    }
+    else if (gbkScore > 5) {
+        return 'gbk';
+    }
+    // 預設假設 Big5 (台灣常用)
+    return 'big5';
+}
+function tryDecodeWithFallback(buffer) {
+    const detectedEncoding = detectEncoding(buffer);
+    if (detectedEncoding === 'utf8') {
+        return { content: buffer.toString('utf8'), encoding: 'utf8' };
+    }
+    // 嘗試編碼列表
+    const encodings = [detectedEncoding, 'big5', 'gbk', 'cp950'];
+    for (const enc of encodings) {
+        try {
+            // 使用 iconv-lite 如果可用
+            try {
+                const iconv = require('iconv-lite');
+                const content = iconv.decode(buffer, enc);
+                // 驗證:檢查是否有過多的替換字元
+                const replacementCount = (content.match(/�/g) || []).length;
+                if (replacementCount < content.length * 0.05) { // 少於5%替換字元
+                    return { content, encoding: enc };
+                }
+            }
+            catch {
+                // iconv-lite 不可用,使用內建 TextDecoder
+                if (enc === 'big5' || enc === 'cp950') {
+                    const content = new util_2.TextDecoder('big5').decode(buffer);
+                    return { content, encoding: 'big5' };
+                }
+            }
+        }
+        catch (err) {
+            continue;
+        }
+    }
+    return null;
+}
+// ===== 編碼轉換核心邏輯 =====
 async function handleEncodingConversion(target) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -110,20 +188,26 @@ async function handleEncodingConversion(target) {
     try {
         if (target === 'utf8') {
             // 偵測是否已經是 UTF-8
-            if (isUtf8(buffer)) {
+            const currentEncoding = detectEncoding(buffer);
+            if (currentEncoding === 'utf8') {
                 vscode.window.showInformationMessage('檔案已經是 UTF-8 編碼');
                 return;
             }
-            const content = new util_2.TextDecoder('big5').decode(buffer);
-            fs.writeFileSync(filePath, content, 'utf8');
-            vscode.window.showInformationMessage('✅ 已成功轉換為 UTF-8 (相容 AI/VS Code)');
+            // 嘗試解碼
+            const result = tryDecodeWithFallback(buffer);
+            if (!result) {
+                vscode.window.showErrorMessage('❌ 無法偵測檔案編碼,轉換失敗');
+                return;
+            }
+            // 寫入 UTF-8
+            fs.writeFileSync(filePath, result.content, 'utf8');
+            vscode.window.showInformationMessage(`✅ 已成功轉換為 UTF-8 (原編碼: ${result.encoding})`);
             // 重新載入檔案以顯示正確內容
             await vscode.commands.executeCommand('workbench.action.files.revert');
         }
         else {
             // 轉換為 Big5
             const content = document.getText();
-            // 優先使用 iconv-lite 套件
             try {
                 const iconv = require('iconv-lite');
                 const big5Buffer = iconv.encode(content, 'big5');
@@ -133,21 +217,12 @@ async function handleEncodingConversion(target) {
                 await vscode.commands.executeCommand('workbench.action.files.revert');
             }
             catch (requireError) {
-                vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行：npm install iconv-lite');
+                vscode.window.showErrorMessage('未安裝 iconv-lite 套件,請執行: npm install iconv-lite');
             }
         }
     }
     catch (err) {
-        vscode.window.showErrorMessage(`編碼轉換失敗：${err.message}`);
-    }
-}
-function isUtf8(buffer) {
-    try {
-        new util_2.TextDecoder('utf-8', { fatal: true }).decode(buffer);
-        return true;
-    }
-    catch {
-        return false;
+        vscode.window.showErrorMessage(`編碼轉換失敗: ${err.message}`);
     }
 }
 async function compileCurrentFile() {
@@ -168,21 +243,27 @@ async function compileCurrentFile() {
         await document.save();
     }
     const sourceFile = document.fileName;
-    // 自動偵測並轉換為 UTF-8 (核心自動化功能)
+    // 自動偵測並轉換為 UTF-8 (改進版)
     if (config.get('autoConvertEncoding', true)) {
         try {
             const buffer = fs.readFileSync(sourceFile);
-            if (!isUtf8(buffer)) {
-                const content = new util_2.TextDecoder('big5').decode(buffer);
-                fs.writeFileSync(sourceFile, content, 'utf8');
-                outputChannel.appendLine('>>> 偵測到 ANSI (Big5) 檔案，已自動優化為 UTF-8');
-                // 重新載入檔案
-                await vscode.commands.executeCommand('workbench.action.files.revert');
+            const currentEncoding = detectEncoding(buffer);
+            if (currentEncoding !== 'utf8') {
+                const result = tryDecodeWithFallback(buffer);
+                if (result) {
+                    fs.writeFileSync(sourceFile, result.content, 'utf8');
+                    outputChannel.appendLine(`>>> 偵測到 ${result.encoding.toUpperCase()} 編碼,已自動轉換為 UTF-8`);
+                    // 重新載入檔案
+                    await vscode.commands.executeCommand('workbench.action.files.revert');
+                }
+                else {
+                    outputChannel.appendLine('>>> 編碼偵測失敗,使用原始編碼繼續編譯');
+                }
             }
         }
         catch (err) {
             // 編碼轉換失敗不影響編譯流程
-            outputChannel.appendLine(`>>> 編碼偵測失敗，使用原始編碼繼續編譯`);
+            outputChannel.appendLine(`>>> 編碼處理失敗,使用原始編碼繼續編譯`);
         }
     }
     const vars = getCommandVariables(sourceFile);
@@ -201,7 +282,7 @@ async function compileCurrentFile() {
         compileCommand = replaceVariables(customCommand, vars);
     }
     else {
-        // 使用預設編譯命令（根據語言自動選擇編譯器）
+        // 使用預設編譯命令(根據語言自動選擇編譯器)
         const isWindows = process.platform === 'win32';
         const compiler = languageId === 'cpp' ? 'g++' : 'gcc';
         const compilerFlags = config.get('compilerFlags', '');
@@ -215,13 +296,8 @@ async function compileCurrentFile() {
             compileCmd += ` ${compilerFlags}`;
         }
         compileCmd += ` -o "${outputFile}"`;
-        // Windows 加上 UTF-8 設定
-        if (isWindows) {
-            compileCommand = `chcp 65001 > nul && ${compileCmd}`;
-        }
-        else {
-            compileCommand = compileCmd;
-        }
+        // ⚠️ 移除 chcp 65001 (因為已統一使用 UTF-8)
+        compileCommand = compileCmd;
     }
     outputChannel.clear();
     outputChannel.show(true);
@@ -230,18 +306,15 @@ async function compileCurrentFile() {
     outputChannel.appendLine(`命令: ${compileCommand}`);
     outputChannel.appendLine('');
     try {
-        // Windows 環境使用 cmd /c 執行命令以支援 chcp 等內建命令
-        const isWindows = process.platform === 'win32';
-        const execCommand = isWindows ? `cmd /c "${compileCommand}"` : compileCommand;
-        const { stdout, stderr } = await execAsync(execCommand, {
+        const { stdout, stderr } = await execAsync(compileCommand, {
             encoding: 'utf8',
-            maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+            maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+            env: { ...process.env, LANG: 'en_US.UTF-8' } // 確保 UTF-8 環境
         });
         // 檢查是否有警告
         let hasWarnings = false;
         if (stderr) {
             outputChannel.appendLine(stderr);
-            // 檢查是否包含警告（warning）但不是錯誤（error）
             const lowerStderr = stderr.toLowerCase();
             hasWarnings = lowerStderr.includes('warning') && !lowerStderr.includes('error');
         }
@@ -250,10 +323,9 @@ async function compileCurrentFile() {
         }
         outputChannel.appendLine('');
         if (hasWarnings) {
-            // 統計警告數量
             const warningCount = (stderr.match(/warning:/gi) || []).length;
-            outputChannel.appendLine(`==================== 編譯成功（有 ${warningCount} 個警告）====================`);
-            vscode.window.showWarningMessage(`⚠️ 編譯成功，但有 ${warningCount} 個警告`);
+            outputChannel.appendLine(`==================== 編譯成功(有 ${warningCount} 個警告)====================`);
+            vscode.window.showWarningMessage(`⚠️ 編譯成功,但有 ${warningCount} 個警告`);
         }
         else {
             outputChannel.appendLine('==================== 編譯成功 ====================');
@@ -268,7 +340,7 @@ async function compileCurrentFile() {
         if (error.stderr) {
             outputChannel.appendLine(error.stderr);
         }
-        vscode.window.showErrorMessage('❌ 編譯失敗，請檢查錯誤訊息');
+        vscode.window.showErrorMessage('❌ 編譯失敗,請檢查錯誤訊息');
         return false;
     }
 }
@@ -302,12 +374,11 @@ async function runCurrentFile(skipTimeCheck = false) {
     if (config.get('useCustomCommand', false)) {
         const customCommand = config.get('customRunCommand', '');
         if (!customCommand) {
-            vscode.window.showErrorMessage('未設定自訂執行命令，請在設定中配置 cpp-smart-runner.customRunCommand');
+            vscode.window.showErrorMessage('未設定自訂執行命令,請在設定中配置 cpp-smart-runner.customRunCommand');
             return;
         }
         execCommand = replaceVariables(customCommand, vars);
-        // 嘗試從自訂命令中提取執行檔路徑（用於時間檢查）
-        // 簡單處理：假設執行檔是命令中的第一個檔案路徑
+        // 嘗試從自訂命令中提取執行檔路徑(用於時間檢查)
         const match = execCommand.match(/"([^"]+)"|(\S+)/);
         outputFile = match ? (match[1] || match[2]) : getOutputPath(sourceFile, config);
     }
@@ -318,7 +389,7 @@ async function runCurrentFile(skipTimeCheck = false) {
     }
     // 檢查執行檔是否存在
     if (!fs.existsSync(outputFile)) {
-        const choice = await vscode.window.showWarningMessage('執行檔不存在，是否先編譯？', '編譯並執行', '取消');
+        const choice = await vscode.window.showWarningMessage('執行檔不存在,是否先編譯?', '編譯並執行', '取消');
         if (choice === '編譯並執行') {
             const success = await compileCurrentFile();
             if (success) {
@@ -332,7 +403,7 @@ async function runCurrentFile(skipTimeCheck = false) {
         const sourceStats = fs.statSync(sourceFile);
         const outputStats = fs.statSync(outputFile);
         if (outputStats.mtime < sourceStats.mtime) {
-            const choice = await vscode.window.showWarningMessage('⚠️ 警告：執行檔比原始檔舊，可能執行的是舊版本！', '重新編譯並執行', '仍然執行', '取消');
+            const choice = await vscode.window.showWarningMessage('⚠️ 警告:執行檔比原始檔舊,可能執行的是舊版本!', '重新編譯並執行', '仍然執行', '取消');
             if (choice === '重新編譯並執行') {
                 const success = await compileCurrentFile();
                 if (success) {
@@ -343,7 +414,6 @@ async function runCurrentFile(skipTimeCheck = false) {
             else if (choice === '取消') {
                 return;
             }
-            // 選擇「仍然執行」則繼續執行
         }
     }
     // 建立終端機並執行
@@ -362,10 +432,7 @@ async function runCurrentFile(skipTimeCheck = false) {
         outputChannel.appendLine('==================== 執行程式 ====================');
         outputChannel.appendLine(`執行命令: ${execCommand}`);
     }
-    // Windows 環境下，確保 UTF-8 編碼設定生效
-    if (isWindows) {
-        terminal.sendText('chcp 65001', true);
-    }
+    // ⚠️ 移除 chcp 65001 (因為檔案已是 UTF-8,不需要再設定)
     terminal.sendText(execCommand);
 }
 function getCompiler(languageId, config) {

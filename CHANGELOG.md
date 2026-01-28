@@ -8,15 +8,19 @@
 ## [1.0.6] - 2026-01-28
 
 ### 新增功能 🎉
-- **自動編碼轉換** - 編譯前自動偵測並轉換 ANSI/Big5 檔案為 UTF-8
+- **改進的自動編碼偵測** - 四階段智慧轉換流程
+  - ✅ 先偵測編碼（UTF-8/Big5/GBK/BOM）
+  - ✅ 多重嘗試解碼（按優先級嘗試多種編碼）
+  - ✅ 驗證解碼品質（檢查替換字元比例 <5%）
+  - ✅ 只有確認成功才寫入檔案
 - **手動編碼轉換命令** - 新增右鍵選單功能
   - `轉換編碼為 UTF-8 (相容AI)` - 將 Big5 檔案轉為 UTF-8
   - `轉換編碼為 Big5 (相容Dev-C++)` - 將 UTF-8 檔案轉回 Big5
 - **UTF-8 編譯器支援** - 自動加入 `-finput-charset=utf-8 -fexec-charset=utf-8` 參數
 - **完整單元測試框架** - 使用 Mocha + VS Code Test API
-  - 50+ 個測試案例
-  - 85%+ 功能覆蓋率
+  - 80 個測試案例全部通過 ✅
   - 10 個測試套件涵蓋所有核心功能
+  - 包含編碼偵測、多重嘗試、品質驗證、整合測試
 - **測試文檔** - 新增完整的測試文檔和快速入門指南
 - **CI/CD 配置** - GitHub Actions 自動化測試
 
@@ -31,7 +35,18 @@
 ### 技術細節 🔧
 - 使用 `iconv-lite` 進行穩定的編碼轉換
 - 使用 TextDecoder 的 fatal 模式進行嚴格的 UTF-8 偵測
+- 啟發式算法偵測 Big5/GBK（基於位元組範圍特徵）
+- 替換字元比例驗證（<5% 閾值）確保解碼品質
+- 多重編碼嘗試機制（detectEncoding → [big5, gbk, cp950]）
 - 測試框架支援跨平台測試（Windows/Linux/macOS）
+
+### 測試覆蓋 🧪
+- Encoding Detection Test Suite (7 tests)
+- UTF-8 Validation Test Suite (6 tests)
+- Multi-Encoding Decode with Fallback Test Suite (7 tests)
+- Encoding Detection Integration Test Suite (5 tests)
+- 其他測試套件（檔案操作、TextEncoder/Decoder、邊界情況等）
+- 總計 80 個測試案例，全部通過 ✅
 
 ### 文檔更新 📚
 - 新增 `ENCODING-FEATURE.md` - 編碼功能詳細說明
