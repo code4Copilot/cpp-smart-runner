@@ -38,18 +38,28 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
     
-    // 註冊手動轉換編碼命令
+    // 註冊手動轉換編碼命令（自動偵測）
     let convertToUtf8Command = vscode.commands.registerCommand('cpp-smart-runner.convertToUtf8', async () => {
-        await handleEncodingConversion('utf8');
+        await handleEncodingConversion('utf8', 'auto');
+    });
+
+    // 註冊從特定編碼轉換的命令
+    let convertFromBig5Command = vscode.commands.registerCommand('cpp-smart-runner.convertFromBig5', async () => {
+        await handleEncodingConversion('utf8', 'big5');
+    });
+
+    let convertFromGbkCommand = vscode.commands.registerCommand('cpp-smart-runner.convertFromGbk', async () => {
+        await handleEncodingConversion('utf8', 'gbk');
     });
 
     let convertToBig5Command = vscode.commands.registerCommand('cpp-smart-runner.convertToBig5', async () => {
-        await handleEncodingConversion('big5');
+        await handleEncodingConversion('big5', 'auto');
     });
     
     context.subscriptions.push(
         compileCommand, runCommand, compileAndRunCommand,
-        convertToUtf8Command, convertToBig5Command, outputChannel
+        convertToUtf8Command, convertFromBig5Command, convertFromGbkCommand,
+        convertToBig5Command, outputChannel
     );
     
     outputChannel.appendLine('C/C++ Smart Runner 已啟動');
@@ -191,7 +201,7 @@ function tryDecodeWithFallback(buffer: Buffer): { content: string, encoding: str
 
 // ===== 編碼轉換核心邏輯 =====
 
-async function handleEncodingConversion(target: 'utf8' | 'big5') {
+async function handleEncodingConversion(target: 'utf8' | 'big5', sourceEncoding: 'auto' | 'big5' | 'gbk' = 'auto') {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showErrorMessage('沒有開啟的檔案');
@@ -217,19 +227,47 @@ async function handleEncodingConversion(target: 'utf8' | 'big5') {
                 return;
             }
             
-            // 嘗試解碼
-            const result = tryDecodeWithFallback(buffer);
-            if (!result) {
-                vscode.window.showErrorMessage('❌ 無法偵測檔案編碼,轉換失敗');
-                return;
+            let decodedContent: string | null = null;
+            let detectedEncoding = '';
+            
+            if (sourceEncoding === 'auto') {
+                // 自動偵測
+                const result = tryDecodeWithFallback(buffer);
+                if (!result) {
+                    vscode.window.showErrorMessage('❌ 無法偵測檔案編碼，請使用子選單選擇原始編碼');
+                    return;
+                }
+                decodedContent = result.content;
+                detectedEncoding = result.encoding;
+            } else {
+                // 使用指定的編碼
+                try {
+                    const iconv = require('iconv-lite');
+                    decodedContent = iconv.decode(buffer, sourceEncoding);
+                    detectedEncoding = sourceEncoding;
+                } catch (requireError) {
+                    vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行: npm install iconv-lite');
+                    return;
+                }
             }
             
-            // 寫入 UTF-8
-            fs.writeFileSync(filePath, result.content, 'utf8');
-            vscode.window.showInformationMessage(`✅ 已成功轉換為 UTF-8 (原編碼: ${result.encoding})`);
+            // ✨ 在編輯器中替換內容（可撤銷）
+            const fullRange = new vscode.Range(
+                document.positionAt(0),
+                document.positionAt(document.getText().length)
+            );
             
-            // 重新載入檔案以顯示正確內容
-            await vscode.commands.executeCommand('workbench.action.files.revert');
+            const success = await editor.edit(editBuilder => {
+                editBuilder.replace(fullRange, decodedContent!);
+            });
+            
+            if (success) {
+                vscode.window.showInformationMessage(
+                    `✅ 已成功轉換為 UTF-8 (原編碼: ${detectedEncoding.toUpperCase()}) | 可按 Ctrl+Z 撤銷`
+                );
+            } else {
+                vscode.window.showErrorMessage('編碼轉換失敗：無法修改編輯器內容');
+            }
             
         } else {
             // 轉換為 Big5
@@ -238,13 +276,16 @@ async function handleEncodingConversion(target: 'utf8' | 'big5') {
             try {
                 const iconv = require('iconv-lite');
                 const big5Buffer = iconv.encode(content, 'big5');
+                
+                // ⚠️ 轉換為 Big5 仍需寫入檔案並重新載入
+                // 因為 VS Code 的編輯器無法直接顯示 Big5
                 fs.writeFileSync(filePath, big5Buffer);
                 vscode.window.showInformationMessage('💾 已成功轉換為 Big5 (相容 Dev-C++)');
                 
                 // 重新載入檔案
                 await vscode.commands.executeCommand('workbench.action.files.revert');
             } catch (requireError) {
-                vscode.window.showErrorMessage('未安裝 iconv-lite 套件,請執行: npm install iconv-lite');
+                vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行: npm install iconv-lite');
             }
         }
     } catch (err: any) {

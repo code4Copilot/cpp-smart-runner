@@ -2,7 +2,7 @@
   "name": "cpp-smart-runner",
   "displayName": "C/C++ Smart Runner",
   "description": "安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "publisher": "hueyanchen",
   "author": {
     "name": "Hueyan Chen",
@@ -60,7 +60,17 @@
       },
       {
         "command": "cpp-smart-runner.convertToUtf8",
-        "title": "轉換為 UTF-8 編碼",
+        "title": "轉換為 UTF-8 (自動偵測)",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "cpp-smart-runner.convertFromBig5",
+        "title": "從 Big5 轉換為 UTF-8",
+        "icon": "$(symbol-text)"
+      },
+      {
+        "command": "cpp-smart-runner.convertFromGbk",
+        "title": "從 GBK 轉換為 UTF-8",
         "icon": "$(symbol-text)"
       },
       {
@@ -89,6 +99,13 @@
         "when": "editorLangId == c || editorLangId == cpp"
       }
     ],
+    "submenus": [
+      {
+        "id": "cpp-smart-runner.encodingMenu",
+        "label": "轉換編碼",
+        "icon": "$(symbol-text)"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
@@ -108,13 +125,26 @@
         },
         {
           "when": "resourceLangId == c || resourceLangId == cpp",
-          "command": "cpp-smart-runner.convertToUtf8",
+          "submenu": "cpp-smart-runner.encodingMenu",
           "group": "navigation@93"
+        }
+      ],
+      "cpp-smart-runner.encodingMenu": [
+        {
+          "command": "cpp-smart-runner.convertToUtf8",
+          "group": "1_utf8@1"
         },
         {
-          "when": "resourceLangId == c || resourceLangId == cpp",
+          "command": "cpp-smart-runner.convertFromBig5",
+          "group": "1_utf8@2"
+        },
+        {
+          "command": "cpp-smart-runner.convertFromGbk",
+          "group": "1_utf8@3"
+        },
+        {
           "command": "cpp-smart-runner.convertToBig5",
-          "group": "navigation@94"
+          "group": "2_other@1"
         }
       ]
     },

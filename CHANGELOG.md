@@ -5,6 +5,54 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.1.0] - 2026-01-28
+
+### 新增功能 🎉
+- **✨ 在編輯器中轉換（可撤銷）** - 編碼轉換更安全
+  - 轉換為 UTF-8 時，直接修改編輯器內容，不立即寫入檔案
+  - 使用者可以用 **Ctrl+Z** 撤銷轉換
+  - 只有在儲存檔案時才真正寫入磁碟
+  - 提供更安全的轉換體驗，避免資料損失
+  
+- **📁 子選單支援** - 讓使用者選擇原始編碼
+  - 新增右鍵子選單：「轉換編碼」
+  - **轉換為 UTF-8 (自動偵測)** - 原有的自動偵測功能
+  - **從 Big5 轉換為 UTF-8** - 明確指定原始編碼為 Big5
+  - **從 GBK 轉換為 UTF-8** - 明確指定原始編碼為 GBK
+  - **轉換為 Big5 編碼** - 轉換為 Dev-C++ 相容格式
+  - 避免自動偵測錯誤的情況
+
+### 改進 ✨
+- **編碼轉換函數重構** - 支援指定原始編碼
+  - 新增 `sourceEncoding` 參數：`'auto' | 'big5' | 'gbk'`
+  - 自動模式維持原有行為
+  - 手動模式使用 iconv-lite 直接解碼
+- **訊息改進** - 提示使用者可以撤銷
+  - 成功訊息包含「可按 Ctrl+Z 撤銷」提示
+  - 偵測失敗時建議使用子選單選擇編碼
+
+### 測試 🧪
+- **新增編碼轉換功能測試** - 10 個新測試確保功能正確性
+  - 命令註冊測試
+  - 編輯器修改測試
+  - 撤銷功能測試
+  - Big5/GBK 指定編碼轉換測試
+  - 錯誤處理測試
+  - package.json 配置驗證測試
+  - 總測試數量：108 個測試
+
+### 技術細節 🔧
+- 使用 `editor.edit()` API 修改編輯器內容
+- 使用 `vscode.Range` 選取全部內容進行替換
+- 保留 Big5 轉換的檔案寫入邏輯（因為 VS Code 無法直接顯示 Big5）
+- 新增 3 個命令註冊：`convertFromBig5`、`convertFromGbk`
+- 在 package.json 新增 `submenus` 和 `menus` 配置
+
+### 文件 📝
+- 新增 [ENCODING-CONVERSION-IMPROVEMENTS.md](ENCODING-CONVERSION-IMPROVEMENTS.md) - 詳細說明改進內容
+- 更新 README.md - 新增子選單使用說明
+- 更新 CHANGELOG.md - 記錄版本變更
+
 ## [1.0.9] - 2026-01-28
 
 ### 修正 🐛
