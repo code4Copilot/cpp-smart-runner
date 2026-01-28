@@ -1,9 +1,16 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.0.8-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.0.9-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
+
+## ✨ 版本 1.0.9 新功能
+
+- 🐛 **Big5/GBK 編碼偵測修正** - 修正 Big5 檔案被誤判為 GBK 的問題
+  - 正確識別 Big5 特有的字節範圍特徵（第二字節 0x40-0x7E）
+  - 改進啟發式演算法，提升編碼判斷準確度
+  - 真實 Big5 檔案測試驗證通過 ✅
 
 ## ✨ 版本 1.0.8 新功能
 
