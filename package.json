@@ -1,0 +1,143 @@
+{
+  "name": "cpp-smart-runner",
+  "displayName": "C/C++ Smart Runner",
+  "description": "安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查",
+  "version": "1.0.5",
+  "publisher": "hueyanchen",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:c",
+    "onLanguage:cpp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cpp-smart-runner.compile",
+        "title": "編譯C/C++程式",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "cpp-smart-runner.run",
+        "title": "執行C/C++程式",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cpp-smart-runner.compileAndRun",
+        "title": "編譯並執行C/C++程式",
+        "icon": "$(run-all)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cpp-smart-runner.compile",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c",
+        "when": "editorLangId == c || editorLangId == cpp"
+      },
+      {
+        "command": "cpp-smart-runner.run",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "editorLangId == c || editorLangId == cpp"
+      },
+      {
+        "command": "cpp-smart-runner.compileAndRun",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorLangId == c || editorLangId == cpp"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceLangId == c || resourceLangId == cpp",
+          "command": "cpp-smart-runner.compile",
+          "group": "navigation@90"
+        },
+        {
+          "when": "resourceLangId == c || resourceLangId == cpp",
+          "command": "cpp-smart-runner.run",
+          "group": "navigation@91"
+        },
+        {
+          "when": "resourceLangId == c || resourceLangId == cpp",
+          "command": "cpp-smart-runner.compileAndRun",
+          "group": "navigation@92"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "C/C++ Smart Runner",
+      "properties": {
+        "cpp-smart-runner.useCustomCommand": {
+          "type": "boolean",
+          "default": true,
+          "description": "使用自訂命令（勾選後將使用下方的自訂命令設定）"
+        },
+        "cpp-smart-runner.customCompileCommand": {
+          "type": "string",
+          "default": "",
+          "description": "自訂編譯命令（支援變數：$fileName, $fileNameWithoutExt, $dir, $fullFileName）留空則根據語言自動選擇 gcc/g++",
+          "examples": ["gcc \"$fullFileName\" -o \"$dir/$fileNameWithoutExt\""]
+        },
+        "cpp-smart-runner.customRunCommand": {
+          "type": "string",
+          "default": "\"$dir/$fileNameWithoutExt.exe\"",
+          "description": "自訂執行命令（支援變數：$fileName, $fileNameWithoutExt, $dir, $fullFileName）",
+          "examples": ["\"$dir/$fileNameWithoutExt\""]
+        },
+        "cpp-smart-runner.compilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "編譯器路徑 (留空則自動偵測 gcc/g++)"
+        },
+        "cpp-smart-runner.compilerFlags": {
+          "type": "string",
+          "default": "-Wall -fexceptions -O2",
+          "description": "編譯器額外參數"
+        },
+        "cpp-smart-runner.outputDir": {
+          "type": "string",
+          "default": "",
+          "description": "輸出目錄 (留空則與原始檔同目錄)"
+        },
+        "cpp-smart-runner.clearTerminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "執行前清除終端機"
+        },
+        "cpp-smart-runner.saveBeforeCompile": {
+          "type": "boolean",
+          "default": true,
+          "description": "編譯前自動儲存檔案"
+        },
+        "cpp-smart-runner.showExecutionMessage": {
+          "type": "boolean",
+          "default": true,
+          "description": "顯示執行訊息"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
