@@ -219,6 +219,22 @@ async function handleEncodingConversion(target: 'utf8' | 'big5', sourceEncoding:
         return;
     }
 
+    // 檢查檔案是否有未儲存的修改
+    if (document.isDirty) {
+        const choice = await vscode.window.showWarningMessage(
+            '檔案有未儲存的修改，編碼轉換會覆寫這些修改。要繼續嗎？',
+            '儲存並轉換',
+            '取消'
+        );
+        
+        if (choice === '儲存並轉換') {
+            await document.save();
+        } else {
+            // 用戶取消
+            return;
+        }
+    }
+
     const buffer = fs.readFileSync(filePath);
 
     try {
@@ -237,97 +253,60 @@ async function handleEncodingConversion(target: 'utf8' | 'big5', sourceEncoding:
                 // 自動偵測
                 const result = tryDecodeWithFallback(buffer);
                 if (!result) {
-                    vscode.window.showErrorMessage('❌ 無法偵測檔案編碼，請使用子選單選擇原始編碼');
+                    vscode.window.showErrorMessage('無法自動偵測檔案編碼');
                     return;
                 }
                 decodedContent = result.content;
                 detectedEncoding = result.encoding;
             } else {
-                // 使用指定的編碼
+                // 指定來源編碼
                 try {
                     const iconv = require('iconv-lite');
                     decodedContent = iconv.decode(buffer, sourceEncoding);
                     detectedEncoding = sourceEncoding;
-                } catch (requireError) {
-                    vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行: npm install iconv-lite');
+                } catch {
+                    vscode.window.showErrorMessage(`無法使用 ${sourceEncoding} 編碼讀取檔案`);
                     return;
                 }
             }
             
-            // ✨ 在編輯器中替換內容（可撤銷）
-            const fullRange = new vscode.Range(
-                document.positionAt(0),
-                document.positionAt(document.getText().length)
-            );
-            
-            const success = await editor.edit(editBuilder => {
-                editBuilder.replace(fullRange, decodedContent!);
-            });
-            
-            if (success) {
-                vscode.window.showInformationMessage(
-                    `✅ 已成功轉換為 UTF-8 (原編碼: ${detectedEncoding.toUpperCase()}) | 可按 Ctrl+Z 撤銷`
-                );
-            } else {
-                vscode.window.showErrorMessage('編碼轉換失敗：無法修改編輯器內容');
-            }
-            
-        } else {
-            // 轉換為 Big5
-            
-            // ✅ 檢查是否有未儲存的修改
-            if (document.isDirty) {
-                const action = await vscode.window.showWarningMessage(
-                    '⚠️ 檔案有未儲存的修改，轉換為 Big5 前需要先儲存',
-                    '儲存並轉換',
-                    '取消'
-                );
-                
-                if (action !== '儲存並轉換') {
-                    return;
-                }
-                
-                await document.save();
-            }
-            
-            // 📋 提示用戶這是單向操作
-            const confirmAction = await vscode.window.showWarningMessage(
-                '⚠️ 轉換為 Big5 後，VS Code 將無法正確顯示此檔案。\n' +
-                '檔案將被儲存為 ANSI Big5 編碼並關閉，請使用 Dev-C++ 等支援 Big5 的編輯器開啟。\n' +
-                '若要在 VS Code 繼續編輯，請使用「轉換為 UTF-8」功能。',
-                { modal: true },
-                '確定轉換',
-                '取消'
-            );
-            
-            if (confirmAction !== '確定轉換') {
+            // 檢查解碼是否成功
+            if (!decodedContent) {
+                vscode.window.showErrorMessage('解碼檔案內容失敗');
                 return;
             }
             
-            const content = document.getText();
+            // 寫入 UTF-8
+            fs.writeFileSync(filePath, decodedContent, 'utf8');
+            
+            // 重新載入檔案
+            await vscode.commands.executeCommand('workbench.action.files.revert');
+            
+            vscode.window.showInformationMessage(`✅ 已從 ${detectedEncoding.toUpperCase()} 轉換為 UTF-8`);
+            
+        } else if (target === 'big5') {
+            // 轉換為 Big5
+            const currentEncoding = detectEncoding(buffer);
+            if (currentEncoding === 'big5') {
+                vscode.window.showInformationMessage('檔案已經是 Big5 編碼');
+                return;
+            }
+            
+            const content = buffer.toString('utf8');
             
             try {
                 const iconv = require('iconv-lite');
                 const big5Buffer = iconv.encode(content, 'big5');
-                
-                // 💾 直接寫入 Big5 編碼檔案（ANSI 格式）
                 fs.writeFileSync(filePath, big5Buffer);
                 
-                // 🚪 關閉檔案（避免在 VS Code 中顯示為亂碼）
-                await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-                
-                // ✅ 顯示成功訊息
-                vscode.window.showInformationMessage(
-                    '✅ 已成功轉換並儲存為 Big5 (ANSI) 編碼\n' +
-                    '📝 請使用 Dev-C++ 或其他支援 Big5 的編輯器開啟\n' +
-                    '💡 若要在 VS Code 繼續編輯，請重新開啟並使用「轉換為 UTF-8」功能'
-                );
-            } catch (requireError) {
-                vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行: npm install iconv-lite');
+                await vscode.commands.executeCommand('workbench.action.files.revert');
+                vscode.window.showInformationMessage('✅ 成功轉換為 Big5 編碼');
+            } catch {
+                vscode.window.showErrorMessage('轉換為 Big5 失敗,請確認已安裝 iconv-lite');
             }
         }
-    } catch (err: any) {
-        vscode.window.showErrorMessage(`編碼轉換失敗: ${err.message}`);
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`編碼轉換失敗: ${error.message}`);
     }
 }
 
@@ -346,101 +325,47 @@ async function compileCurrentFile(): Promise<boolean> {
         return false;
     }
     
-    const config = vscode.workspace.getConfiguration('cpp-smart-runner');
-    
-    // 儲存檔案
-    if (config.get<boolean>('saveBeforeCompile', true) && document.isDirty) {
+    // 自動儲存
+    if (document.isDirty) {
         await document.save();
     }
     
     const sourceFile = document.fileName;
-    
-    // 自動偵測並轉換為 UTF-8 (改進版)
-    if (config.get<boolean>('autoConvertEncoding', true)) {
-        try {
-            const buffer = fs.readFileSync(sourceFile);
-            const currentEncoding = detectEncoding(buffer);
-            
-            if (currentEncoding !== 'utf8') {
-                const result = tryDecodeWithFallback(buffer);
-                if (result) {
-                    // ✅ 使用 editor.edit() 使轉換可撤銷
-                    const fullRange = new vscode.Range(
-                        document.positionAt(0),
-                        document.positionAt(document.getText().length)
-                    );
-                    
-                    const success = await editor.edit(editBuilder => {
-                        editBuilder.replace(fullRange, result.content);
-                    });
-                    
-                    if (success) {
-                        outputChannel.appendLine(`>>> 偵測到 ${result.encoding.toUpperCase()} 編碼,已自動轉換為 UTF-8`);
-                        // 自動儲存轉換後的內容
-                        await document.save();
-                    } else {
-                        outputChannel.appendLine('>>> 編碼轉換失敗,使用原始編碼繼續編譯');
-                    }
-                } else {
-                    outputChannel.appendLine('>>> 編碼偵測失敗,使用原始編碼繼續編譯');
-                }
-            }
-        } catch (err) {
-            // 編碼轉換失敗不影響編譯流程
-            outputChannel.appendLine(`>>> 編碼處理失敗,使用原始編碼繼續編譯`);
-        }
-    }
-    
+    const config = vscode.workspace.getConfiguration('cpp-smart-runner');
     const vars = getCommandVariables(sourceFile);
-    
-    // 除錯輸出
-    outputChannel.appendLine('==================== 變數除錯 ====================');
-    outputChannel.appendLine(`fileName: ${vars.fileName}`);
-    outputChannel.appendLine(`fileNameWithoutExt: ${vars.fileNameWithoutExt}`);
-    outputChannel.appendLine(`dir: ${vars.dir}`);
-    outputChannel.appendLine(`fullFileName: ${vars.fullFileName}`);
-    outputChannel.appendLine('');
     
     let compileCommand: string;
     
     // 檢查是否使用自訂命令
-    const customCommand = config.get<string>('customCompileCommand', '');
-    if (customCommand) {
-        // 使用使用者自訂的編譯命令
+    if (config.get<boolean>('useCustomCommand', false)) {
+        const customCommand = config.get<string>('customCompileCommand', '');
+        if (!customCommand) {
+            vscode.window.showErrorMessage('未設定自訂編譯命令,請在設定中配置 cpp-smart-runner.customCompileCommand');
+            return false;
+        }
         compileCommand = replaceVariables(customCommand, vars);
     } else {
-        // 使用預設編譯命令(根據語言自動選擇編譯器)
-        const isWindows = process.platform === 'win32';
-        const compiler = languageId === 'cpp' ? 'g++' : 'gcc';
-        const compilerFlags = config.get<string>('compilerFlags', '');
-        const outputExt = isWindows ? '.exe' : '';
-        const outputFile = path.join(vars.dir, `${vars.fileNameWithoutExt}${outputExt}`);
+        // 使用預設編譯命令
+        const compiler = getCompiler(languageId, config);
+        const outputFile = getOutputPath(sourceFile, config);
+        const extraFlags = config.get<string>('compilerFlags', '-Wall -Wextra');
+        const standard = languageId === 'cpp' 
+            ? config.get<string>('cppStandard', '-std=c++11')
+            : config.get<string>('cStandard', '-std=c11');
         
-        // 動態判斷語言標準
-        const standardFlag = languageId === 'cpp' ? '-std=c++17' : '-std=c11';
-        
-        // 組合編譯命令
-        let compileCmd = `${compiler} "${vars.fullFileName}" ${standardFlag}`;
-        // 加入 UTF-8 編碼支援參數
-        compileCmd += ' -finput-charset=utf-8 -fexec-charset=utf-8';
-        if (compilerFlags) {
-            compileCmd += ` ${compilerFlags}`;
-        }
-        compileCmd += ` -o "${outputFile}"`;
-        
-        // ⚠️ 移除 chcp 65001 (因為已統一使用 UTF-8)
-        compileCommand = compileCmd;
+        compileCommand = `"${compiler}" ${standard} ${extraFlags} "${sourceFile}" -o "${outputFile}"`;
     }
     
-    outputChannel.clear();
     outputChannel.show(true);
-    outputChannel.appendLine('==================== 編譯開始 ====================');
-    outputChannel.appendLine(`原始檔: ${sourceFile}`);
+    outputChannel.appendLine('');
+    outputChannel.appendLine('==================== 開始編譯 ====================');
+    outputChannel.appendLine(`檔案: ${vars.fileName}`);
     outputChannel.appendLine(`命令: ${compileCommand}`);
     outputChannel.appendLine('');
     
     try {
         const { stdout, stderr } = await execAsync(compileCommand, {
+            cwd: vars.dir,
             encoding: 'utf8',
             maxBuffer: 1024 * 1024 * 10, // 10MB buffer
             // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -510,27 +435,8 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         outputChannel.appendLine('');
     }
     
-    let execCommand: string;
-    let outputFile: string;
-    
-    // 檢查是否使用自訂命令
-    if (config.get<boolean>('useCustomCommand', false)) {
-        const customCommand = config.get<string>('customRunCommand', '');
-        if (!customCommand) {
-            vscode.window.showErrorMessage('未設定自訂執行命令,請在設定中配置 cpp-smart-runner.customRunCommand');
-            return;
-        }
-        execCommand = replaceVariables(customCommand, vars);
-        
-        // 嘗試從自訂命令中提取執行檔路徑(用於時間檢查)
-        const match = execCommand.match(/"([^"]+)"|(\S+)/);
-        outputFile = match ? (match[1] || match[2]) : getOutputPath(sourceFile, config);
-    } else {
-        outputFile = getOutputPath(sourceFile, config);
-        const isWindows = process.platform === 'win32';
-        // 暫時不設定 execCommand，稍後根據終端機類型設定（統一格式會在後面設定）
-        execCommand = ''; // 不在這裡設定，等待後面的統一格式邏輯
-    }
+    // 取得輸出檔路徑
+    const outputFile = getOutputPath(sourceFile, config);
     
     // 檢查執行檔是否存在
     if (!fs.existsSync(outputFile)) {
@@ -574,7 +480,7 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         }
     }
     
-    // 建立終端機並執行（使用使用者的預設終端機）
+    // 建立終端機並執行
     const terminal = vscode.window.createTerminal({
         name: 'C/C++ Runner'
     });
@@ -582,22 +488,20 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     
     const isWindows = process.platform === 'win32';
     
-    // 偵測終端機類型（改進版）
-    const shellPath = (vscode.env.shell || '').toLowerCase();
-    let isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
-    
-    // 如果 shell 路徑偵測失敗，嘗試從活動終端機獲取
-    if (!isPowerShell && vscode.window.activeTerminal) {
-        const terminalName = vscode.window.activeTerminal.name.toLowerCase();
-        isPowerShell = terminalName.includes('powershell') || terminalName.includes('pwsh');
+    // 偵測終端機類型（僅用於 Windows 編碼設定）
+    let isPowerShell = false;
+    if (isWindows) {
+        const shellPath = (vscode.env.shell || '').toLowerCase();
+        isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+        
+        // 如果 shell 路徑偵測失敗，嘗試從活動終端機獲取
+        if (!isPowerShell && vscode.window.activeTerminal) {
+            const terminalName = vscode.window.activeTerminal.name.toLowerCase();
+            isPowerShell = terminalName.includes('powershell') || terminalName.includes('pwsh');
+        }
     }
     
-    // 輸出調試信息
-    if (config.get<boolean>('showExecutionMessage', true)) {
-        outputChannel.appendLine(`Shell Path: ${vscode.env.shell}`);
-        outputChannel.appendLine(`偵測為 PowerShell: ${isPowerShell}`);
-    }
-    
+    // 清空終端機
     if (config.get<boolean>('clearTerminal', true)) {
         const clearCommand = isWindows ? 'cls' : 'clear';
         terminal.sendText(clearCommand, true);
@@ -615,33 +519,62 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         }
     }
     
-    // 統一的執行命令格式（CMD 和 PowerShell 都支持）
-    if (isWindows && !config.get<boolean>('useCustomCommand', false)) {
-        // 切換到檔案所在目錄
-        const fileDir = path.dirname(outputFile);
-        terminal.sendText(`cd "${fileDir}"`, true);
-        
-        // 使用相對路徑執行（.\filename.exe 格式在 CMD 和 PowerShell 都能用）
-        const fileName = path.basename(outputFile);
-        if (fileName.includes(' ')) {
-            // 檔名有空格需要引號
-            execCommand = `."\\${fileName}"`;
-        } else {
-            execCommand = `.\\${fileName}`;
+    // 準備執行命令
+    let execCommand: string;
+    let useCustomCommand = config.get<boolean>('useCustomCommand', false);
+    const fileDir = path.dirname(outputFile);
+    const fileName = path.basename(outputFile);
+    
+    // 統一先切換到檔案所在目錄（自訂和預設命令都需要）
+    terminal.sendText(`cd "${fileDir}"`, true);
+    
+    if (useCustomCommand) {
+        // 使用自訂命令
+        const customCommand = config.get<string>('customRunCommand', '');
+        if (!customCommand) {
+            vscode.window.showErrorMessage('未設定自訂執行命令,請在設定中配置 cpp-smart-runner.customRunCommand');
+            return;
         }
-    } else if (!isWindows && !config.get<boolean>('useCustomCommand', false)) {
-        // Unix-like 系統：使用引號包裹路徑
-        execCommand = `"${outputFile}"`;
+        execCommand = replaceVariables(customCommand, vars);
+        
+        if (config.get<boolean>('showExecutionMessage', true)) {
+            outputChannel.appendLine('');
+            outputChannel.appendLine('==================== 執行程式 ====================');
+            outputChannel.appendLine(`使用自訂命令`);
+            outputChannel.appendLine(`終端機類型: ${isPowerShell ? 'PowerShell' : (isWindows ? 'CMD' : 'Unix Shell')}`);
+            outputChannel.appendLine(`切換目錄: ${fileDir}`);
+            outputChannel.appendLine(`執行命令: ${execCommand}`);
+        }
+    } else {
+        // 使用預設命令：相對路徑執行
+        
+        // 使用相對路徑執行
+        if (isWindows) {
+            // Windows: 使用 .\ 格式
+            if (fileName.includes(' ')) {
+                execCommand = `".\\${fileName}"`;
+            } else {
+                execCommand = `.\\${fileName}`;
+            }
+        } else {
+            // Unix-like: 使用 ./ 格式
+            if (fileName.includes(' ')) {
+                execCommand = `"./${fileName}"`;
+            } else {
+                execCommand = `./${fileName}`;
+            }
+        }
+        
+        if (config.get<boolean>('showExecutionMessage', true)) {
+            outputChannel.appendLine('');
+            outputChannel.appendLine('==================== 執行程式 ====================');
+            outputChannel.appendLine(`終端機類型: ${isPowerShell ? 'PowerShell' : (isWindows ? 'CMD' : 'Unix Shell')}`);
+            outputChannel.appendLine(`切換目錄: ${fileDir}`);
+            outputChannel.appendLine(`執行命令: ${execCommand}`);
+        }
     }
-    // 自訂命令模式保持 execCommand 不變
     
-    if (config.get<boolean>('showExecutionMessage', true)) {
-        outputChannel.appendLine('');
-        outputChannel.appendLine('==================== 執行程式 ====================');
-        outputChannel.appendLine(`終端機類型: ${isPowerShell ? 'PowerShell' : 'CMD'}`);
-        outputChannel.appendLine(`執行命令: ${execCommand}`);
-    }
-    
+    // 執行命令
     terminal.sendText(execCommand);
 }
 
