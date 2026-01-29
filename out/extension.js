@@ -325,7 +325,7 @@ async function compileCurrentFile() {
         const outputFile = getOutputPath(sourceFile, config);
         const extraFlags = config.get('compilerFlags', '-Wall -Wextra');
         const standard = languageId === 'cpp'
-            ? config.get('cppStandard', '-std=c++17')
+            ? config.get('cppStandard', '-std=c++11')
             : config.get('cStandard', '-std=c11');
         compileCommand = `"${compiler}" ${standard} ${extraFlags} "${sourceFile}" -o "${outputFile}"`;
     }

@@ -10,7 +10,7 @@
 
 ### 動態語言標準判斷
 - **C 檔案**：自動使用 `gcc` + `-std=c11`
-- **C++ 檔案**：自動使用 `g++` + `-std=c++17`
+- **C++ 檔案**：自動使用 `g++` + `-std=c++11`
 - **通用參數**：`compilerFlags` 改為 `-Wall -O2`（可自訂）
 
 ### 編譯命令範例
@@ -22,7 +22,7 @@ gcc "test.c" -std=c11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "t
 
 #### C++ 檔案
 ```bash
-g++ "test.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "test.exe"
+g++ "test.cpp" -std=c++11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "test.exe"
 ```
 
 ## 📋 已更新檔案

@@ -17,7 +17,7 @@
 - `compilerFlags` 設定改為通用參數：`-Wall -O2`
 - 程式自動根據檔案類型判斷語言標準：
   - C 檔案（.c）→ 自動加入 `-std=c11`
-  - C++ 檔案（.cpp, .cxx, .cc）→ 自動加入 `-std=c++17`
+  - C++ 檔案（.cpp, .cxx, .cc）→ 自動加入 `-std=c++11`
 - 編譯命令結構更清晰合理
 
 ## 📋 編譯命令結構
@@ -29,13 +29,13 @@ gcc "file.c" -std=c11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "f
 
 ### C++ 檔案編譯命令
 ```bash
-g++ "file.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "file.exe"
+g++ "file.cpp" -std=c++11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "file.exe"
 ```
 
 ### 參數順序邏輯
 1. 編譯器（gcc/g++）
 2. 原始檔案路徑
-3. **語言標準**（-std=c11/-std=c++17）← 動態判斷
+3. **語言標準**（-std=c11/-std=c++11）← 動態判斷
 4. 編碼參數（-finput-charset, -fexec-charset）
 5. 通用編譯參數（-Wall, -O2 等）
 6. 輸出檔案（-o）
@@ -43,7 +43,7 @@ g++ "file.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -
 ## 🧪 測試覆蓋
 
 ### 新增測試套件：Compiler Flags Test Suite
-- ✅ 語言標準判斷測試（C11/C++17）
+- ✅ 語言標準判斷測試（C11/C++11）
 - ✅ 編譯器選擇測試（gcc/g++）
 - ✅ 編譯命令組合測試
 - ✅ 參數順序驗證測試

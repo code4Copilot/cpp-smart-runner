@@ -1,6 +1,6 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
@@ -8,6 +8,27 @@
 ## 📋 版本歷史
 
 查看完整版本歷史：[CHANGELOG.md](CHANGELOG.md)
+
+## ✨ 版本 1.1.3 修正
+
+- **🔧 統一執行命令格式** - 解決 PowerShell 執行路徑問題
+  - 修正 `useCustomCommand` 預設值從 `true` 改為 `false`
+  - 統一使用 `cd` 切換目錄 + `.\filename.exe` 相對路徑執行
+  - 此格式在 CMD 和 PowerShell 都能正常運作
+  - 解決之前顯示完整路徑字串而非可執行命令的問題
+
+## ✨ 版本 1.1.2 修正
+
+- **🐛 Big5 轉換行為改進** - 解決轉換後亂碼問題
+  - 轉換為 Big5 後不再重新載入（避免 VS Code 以 UTF-8 解讀造成亂碼）
+  - 改為寫入 ANSI Big5 編碼後自動關閉檔案
+  - 新增雙重確認對話框，明確告知轉換後果
+  - 提示使用 Dev-C++ 或其他支援 Big5 的編輯器開啟
+
+- **🔧 PowerShell 執行命令和中文顯示修正** - 解決 PowerShell 終端機問題
+  - 修正 PowerShell 執行命令格式（相對路徑使用 `.\file.exe`）
+  - 新增 PowerShell 輸出編碼設定 `[Console]::OutputEncoding = UTF8`
+  - 解決 PowerShell 終端機中文亂碼問題
 
 ## ✨ 版本 1.1.1 修正
 
@@ -46,7 +67,7 @@
 
 - 🎯 **動態語言標準** - 自動根據檔案類型選擇正確的語言標準
   - C 檔案使用 C11 標準（`-std=c11`）
-  - C++ 檔案使用 C++17 標準（`-std=c++17`）
+  - C++ 檔案使用 C++11 標準（`-std=c++11`）
   - 通用編譯參數（`-Wall -O2`）可在設定中自訂
 - 🔧 **編譯參數優化** - 更合理的參數順序和結構
 - 🧪 **完整測試覆蓋** - 98 個測試全部通過，新增 10 個編譯器參數測試
@@ -148,12 +169,12 @@
 本延伸模組會根據檔案類型自動選擇編譯器和語言標準：
 
 - **C 語言 (.c)**：使用 `gcc` 編譯，自動加入 `-std=c11` 標準
-- **C++ 語言 (.cpp, .cxx, .cc)**：使用 `g++` 編譯，自動加入 `-std=c++17` 標準
+- **C++ 語言 (.cpp, .cxx, .cc)**：使用 `g++` 編譯，自動加入 `-std=c++11` 標準
 
 預設編譯命令（Windows）：
 ```
 gcc "檔案.c" -std=c11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "檔案.exe"
-g++ "檔案.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "檔案.exe"
+g++ "檔案.cpp" -std=c++11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o "檔案.exe"
 ```
 
 預設執行命令：
@@ -192,7 +213,7 @@ g++ "檔案.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2
 ```json
 {
   "cpp-smart-runner.compilerPath": "",
-  "cpp-smart-runner.compilerFlags": "-Wall -std=c++17",
+  "cpp-smart-runner.compilerFlags": "-Wall -O2",
   "cpp-smart-runner.outputDir": "",
   "cpp-smart-runner.clearTerminal": true,
   "cpp-smart-runner.saveBeforeCompile": true,
@@ -248,7 +269,7 @@ g++ "檔案.cpp" -std=c++17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2
   "cpp-smart-runner.compilerFlags": "-Wall -Wextra -O2 -g"
 }
 ```
-※ 語言標準（`-std=c11` 或 `-std=c++17`）會自動加入，不需手動設定
+※ 語言標準（`-std=c11` 或 `-std=c++11`）會自動加入，不需手動設定
 
 #### 範例 2：修改語言標準（需要完全自訂命令）
 ```json
