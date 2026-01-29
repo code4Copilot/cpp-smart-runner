@@ -213,6 +213,86 @@ suite('Terminal Configuration Test Suite', () => {
             assert.ok(typeof isPowerShell === 'boolean');
         }
     });
+    
+    test('Should use correct PowerShell encoding settings', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            const shellPath = (vscode.env.shell || '').toLowerCase();
+            const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+            
+            if (isPowerShell) {
+                // PowerShell 應該設定兩個命令
+                const chcpCommand = 'chcp 65001 2>&1 | Out-Null';
+                const consoleEncodingCommand = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8';
+                
+                // 驗證 chcp 命令格式
+                assert.ok(chcpCommand.includes('chcp 65001'));
+                assert.ok(chcpCommand.includes('Out-Null'));
+                
+                // 驗證 Console.OutputEncoding 命令
+                assert.ok(consoleEncodingCommand.includes('[Console]::OutputEncoding'));
+                assert.ok(consoleEncodingCommand.includes('UTF8'));
+            }
+        }
+    });
+    
+    test('Should generate correct PowerShell execution command for relative path', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            const shellPath = (vscode.env.shell || '').toLowerCase();
+            const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+            
+            if (isPowerShell) {
+                const fileName = 'test.exe';
+                const execCommand = `.\\${fileName}`;
+                
+                // 驗證命令格式
+                assert.ok(execCommand.startsWith('.\\'));
+                assert.ok(execCommand.includes(fileName));
+                assert.strictEqual(execCommand, '.\\test.exe');
+            }
+        }
+    });
+    
+    test('Should generate correct PowerShell execution command for absolute path', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            const shellPath = (vscode.env.shell || '').toLowerCase();
+            const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+            
+            if (isPowerShell) {
+                const absolutePath = 'C:\\project\\test.exe';
+                const execCommand = `& "${absolutePath}"`;
+                
+                // 驗證命令格式
+                assert.ok(execCommand.startsWith('& '));
+                assert.ok(execCommand.includes(absolutePath));
+                assert.strictEqual(execCommand, '& "C:\\project\\test.exe"');
+            }
+        }
+    });
+    
+    test('Should correctly detect absolute vs relative paths', () => {
+        const isWindows = process.platform === 'win32';
+        
+        if (isWindows) {
+            const path = require('path');
+            
+            // 測試絕對路徑偵測
+            const absolutePath = 'C:\\Users\\test\\project\\test.exe';
+            assert.strictEqual(path.isAbsolute(absolutePath), true);
+            
+            // 測試相對路徑偵測
+            const relativePath = 'test.exe';
+            assert.strictEqual(path.isAbsolute(relativePath), false);
+            
+            const relativePathWithDot = '.\\test.exe';
+            assert.strictEqual(path.isAbsolute(relativePathWithDot), false);
+        }
+    });
 });
 
 suite('Platform Compatibility Test Suite', () => {

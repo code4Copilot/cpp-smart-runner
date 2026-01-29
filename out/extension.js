@@ -504,35 +504,46 @@ async function runCurrentFile(skipTimeCheck = false) {
     });
     terminal.show();
     const isWindows = process.platform === 'win32';
+    // 偵測終端機類型
+    const shellPath = (vscode.env.shell || '').toLowerCase();
+    const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
     if (config.get('clearTerminal', true)) {
         const clearCommand = isWindows ? 'cls' : 'clear';
         terminal.sendText(clearCommand, true);
     }
+    // Windows 環境設定 UTF-8（根據終端機類型使用對應語法）
+    if (isWindows) {
+        if (isPowerShell) {
+            // PowerShell 需要設定控制台和輸出編碼
+            terminal.sendText('chcp 65001 2>&1 | Out-Null', true);
+            terminal.sendText('[Console]::OutputEncoding = [System.Text.Encoding]::UTF8', true);
+        }
+        else {
+            // CMD 只需要 chcp
+            terminal.sendText('chcp 65001 >nul 2>&1', true);
+        }
+    }
+    // 為 PowerShell 調整執行命令（添加 .\ 前綴）
+    if (isWindows && isPowerShell && !config.get('useCustomCommand', false)) {
+        // 檢查是否為絕對路徑
+        const isAbsolutePath = path.isAbsolute(outputFile);
+        if (isAbsolutePath) {
+            // 絕對路徑：使用 & 運算符
+            execCommand = `& "${outputFile}"`;
+        }
+        else {
+            // 相對路徑：使用 .\
+            const fileName = path.basename(outputFile);
+            execCommand = `.\\${fileName}`;
+        }
+    }
     if (config.get('showExecutionMessage', true)) {
         outputChannel.appendLine('');
         outputChannel.appendLine('==================== 執行程式 ====================');
+        outputChannel.appendLine(`終端機類型: ${isPowerShell ? 'PowerShell' : 'CMD'}`);
         outputChannel.appendLine(`執行命令: ${execCommand}`);
     }
-    // Windows 環境設定 UTF-8（根據終端機類型使用對應語法）
-    if (isWindows) {
-        const chcpCommand = getChcpCommand();
-        terminal.sendText(chcpCommand, true);
-    }
     terminal.sendText(execCommand);
-}
-function getChcpCommand() {
-    // 偵測終端機類型並返回對應的 UTF-8 設定命令
-    const shellPath = (vscode.env.shell || '').toLowerCase();
-    // 檢查是否為 PowerShell（包含 powershell.exe 和 pwsh.exe）
-    const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
-    if (isPowerShell) {
-        // PowerShell 語法：將錯誤和輸出都重定向到 Out-Null
-        return 'chcp 65001 2>&1 | Out-Null';
-    }
-    else {
-        // CMD 語法：使用 >nul 重定向
-        return 'chcp 65001 >nul 2>&1';
-    }
 }
 function getCompiler(languageId, config) {
     const customCompiler = config.get('compilerPath', '');

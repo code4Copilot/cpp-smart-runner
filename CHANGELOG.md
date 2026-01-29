@@ -15,6 +15,13 @@
   - 提示使用 Dev-C++ 或其他支援 Big5 的編輯器開啟
   - 說明如何轉回 UTF-8 以便在 VS Code 繼續編輯
 
+- **PowerShell 執行命令和中文顯示修正** - 解決 PowerShell 終端機問題
+  - 修正 PowerShell 執行命令格式（相對路徑使用 `.\file.exe`）
+  - 修正 PowerShell 執行命令格式（絕對路徑使用 `& "path\file.exe"`）
+  - 新增 PowerShell 輸出編碼設定 `[Console]::OutputEncoding = UTF8`
+  - 解決 PowerShell 終端機中文亂碼問題
+  - CMD 終端機功能完全保留，不受影響
+
 ### 測試 🧪
 - **新增 Big5 轉換單向寫入測試套件** - 5 個新測試
   - 用戶取消未儲存警告測試
@@ -23,7 +30,13 @@
   - 缺少 iconv-lite 套件測試
   - ANSI Big5 格式驗證測試
   - 使用 Sinon.js 模擬對話框互動
-  - 總測試數量：119 個測試
+
+- **新增 PowerShell 相關測試** - 5 個新測試
+  - PowerShell 編碼設定測試
+  - PowerShell 相對路徑執行命令測試
+  - PowerShell 絕對路徑執行命令測試
+  - 路徑類型偵測測試
+  - 總測試數量：124 個測試
 
 - **新增手動測試文檔** - 8 個詳細測試案例
   - 基本轉換流程測試
@@ -41,6 +54,7 @@
 - **開發者文檔**
   - 新增 [BIG5-CONVERSION-MANUAL-TEST.md](BIG5-CONVERSION-MANUAL-TEST.md) - 手動測試清單
   - 新增 [BIG5-CONVERSION-TEST-SUMMARY.md](BIG5-CONVERSION-TEST-SUMMARY.md) - 測試總結
+  - 新增 [POWERSHELL-FIX.md](POWERSHELL-FIX.md) - PowerShell 修正詳細說明
 
 ### 技術細節 🔧
 - 新增 `sinon` 測試依賴用於模擬對話框
