@@ -528,7 +528,8 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     } else {
         outputFile = getOutputPath(sourceFile, config);
         const isWindows = process.platform === 'win32';
-        execCommand = isWindows ? `"${outputFile}"` : `"${outputFile}"`;
+        // 暫時不設定 execCommand，稍後根據終端機類型設定（統一格式會在後面設定）
+        execCommand = ''; // 不在這裡設定，等待後面的統一格式邏輯
     }
     
     // 檢查執行檔是否存在
@@ -581,9 +582,21 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     
     const isWindows = process.platform === 'win32';
     
-    // 偵測終端機類型
+    // 偵測終端機類型（改進版）
     const shellPath = (vscode.env.shell || '').toLowerCase();
-    const isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+    let isPowerShell = shellPath.includes('powershell') || shellPath.includes('pwsh');
+    
+    // 如果 shell 路徑偵測失敗，嘗試從活動終端機獲取
+    if (!isPowerShell && vscode.window.activeTerminal) {
+        const terminalName = vscode.window.activeTerminal.name.toLowerCase();
+        isPowerShell = terminalName.includes('powershell') || terminalName.includes('pwsh');
+    }
+    
+    // 輸出調試信息
+    if (config.get<boolean>('showExecutionMessage', true)) {
+        outputChannel.appendLine(`Shell Path: ${vscode.env.shell}`);
+        outputChannel.appendLine(`偵測為 PowerShell: ${isPowerShell}`);
+    }
     
     if (config.get<boolean>('clearTerminal', true)) {
         const clearCommand = isWindows ? 'cls' : 'clear';
@@ -602,20 +615,25 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         }
     }
     
-    // 為 PowerShell 調整執行命令（添加 .\ 前綴）
-    if (isWindows && isPowerShell && !config.get<boolean>('useCustomCommand', false)) {
-        // 檢查是否為絕對路徑
-        const isAbsolutePath = path.isAbsolute(outputFile);
+    // 統一的執行命令格式（CMD 和 PowerShell 都支持）
+    if (isWindows && !config.get<boolean>('useCustomCommand', false)) {
+        // 切換到檔案所在目錄
+        const fileDir = path.dirname(outputFile);
+        terminal.sendText(`cd "${fileDir}"`, true);
         
-        if (isAbsolutePath) {
-            // 絕對路徑：使用 & 運算符
-            execCommand = `& "${outputFile}"`;
+        // 使用相對路徑執行（.\filename.exe 格式在 CMD 和 PowerShell 都能用）
+        const fileName = path.basename(outputFile);
+        if (fileName.includes(' ')) {
+            // 檔名有空格需要引號
+            execCommand = `."\\${fileName}"`;
         } else {
-            // 相對路徑：使用 .\
-            const fileName = path.basename(outputFile);
             execCommand = `.\\${fileName}`;
         }
+    } else if (!isWindows && !config.get<boolean>('useCustomCommand', false)) {
+        // Unix-like 系統：使用引號包裹路徑
+        execCommand = `"${outputFile}"`;
     }
+    // 自訂命令模式保持 execCommand 不變
     
     if (config.get<boolean>('showExecutionMessage', true)) {
         outputChannel.appendLine('');

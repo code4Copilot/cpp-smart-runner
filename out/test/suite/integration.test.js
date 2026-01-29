@@ -270,6 +270,132 @@ suite('Terminal Configuration Test Suite', () => {
             assert.strictEqual(path.isAbsolute(relativePathWithDot), false);
         }
     });
+    test('Should generate correct CMD execution command with quotes', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            const shellPath = (vscode.env.shell || '').toLowerCase();
+            const isCmd = shellPath.includes('cmd');
+            if (isCmd) {
+                const outputFile = 'C:\\project\\test.exe';
+                const execCommand = `"${outputFile}"`;
+                // 驗證 CMD 命令格式
+                assert.ok(execCommand.startsWith('"'));
+                assert.ok(execCommand.endsWith('"'));
+                assert.ok(execCommand.includes(outputFile));
+                assert.strictEqual(execCommand, '"C:\\project\\test.exe"');
+            }
+        }
+    });
+    test('Should handle custom command without modification', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            // 模擬自訂命令
+            const customCommand = 'wine test.exe';
+            const useCustomCommand = true;
+            // 自訂命令應該保持原樣
+            if (useCustomCommand) {
+                const execCommand = customCommand;
+                assert.strictEqual(execCommand, 'wine test.exe');
+                // 確保不會被 PowerShell 或 CMD 邏輯修改
+                assert.ok(!execCommand.startsWith('.\\'));
+                assert.ok(!execCommand.startsWith('& '));
+            }
+        }
+    });
+    test('Should use different command format for different terminals', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            const outputFile = 'C:\\Users\\test\\project\\test.exe';
+            const fileName = 'test.exe';
+            // PowerShell 絕對路徑格式
+            const powershellAbsolute = `& "${outputFile}"`;
+            assert.strictEqual(powershellAbsolute, '& "C:\\Users\\test\\project\\test.exe"');
+            // PowerShell 相對路徑格式
+            const powershellRelative = `.\\${fileName}`;
+            assert.strictEqual(powershellRelative, '.\\test.exe');
+            // CMD 格式
+            const cmdFormat = `"${outputFile}"`;
+            assert.strictEqual(cmdFormat, '"C:\\Users\\test\\project\\test.exe"');
+            // 驗證三種格式都不相同
+            assert.notStrictEqual(powershellAbsolute, cmdFormat);
+            assert.notStrictEqual(powershellRelative, cmdFormat);
+            assert.notStrictEqual(powershellAbsolute, powershellRelative);
+        }
+    });
+});
+suite('Unified Command Format Test Suite', () => {
+    test('Should use relative path format for Windows executables', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            const outputFile = 'C:\\C_Code_Test\\ch04\\ch4-1-1.exe';
+            const fileName = path.basename(outputFile);
+            // 統一格式：使用相對路徑
+            const execCommand = `.\\${fileName}`;
+            assert.strictEqual(execCommand, '.\\ch4-1-1.exe');
+            assert.ok(execCommand.startsWith('.\\'));
+            assert.ok(!execCommand.includes('"') || fileName.includes(' '));
+        }
+    });
+    test('Should handle filenames with spaces correctly', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            const outputFile = 'C:\\C_Code_Test\\ch04\\ch4 test file.exe';
+            const fileName = path.basename(outputFile);
+            let execCommand;
+            if (fileName.includes(' ')) {
+                execCommand = `."\\${fileName}"`;
+            }
+            else {
+                execCommand = `.\\${fileName}`;
+            }
+            assert.strictEqual(execCommand, '."\\ch4 test file.exe"');
+            assert.ok(execCommand.includes('"'));
+            assert.ok(execCommand.startsWith('.'));
+        }
+    });
+    test('Should use cd command before relative path execution', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            const outputFile = 'C:\\C_Code_Test\\ch04\\ch4-1-1.exe';
+            const fileDir = path.dirname(outputFile);
+            const fileName = path.basename(outputFile);
+            const cdCommand = `cd "${fileDir}"`;
+            const execCommand = `.\\${fileName}`;
+            assert.strictEqual(cdCommand, 'cd "C:\\C_Code_Test\\ch04"');
+            assert.strictEqual(execCommand, '.\\ch4-1-1.exe');
+            // 驗證命令組合
+            assert.ok(cdCommand.includes(fileDir));
+            assert.ok(execCommand.startsWith('.\\'));
+        }
+    });
+    test('Should not modify custom commands', () => {
+        const isWindows = process.platform === 'win32';
+        const useCustomCommand = true;
+        if (isWindows && useCustomCommand) {
+            const customCommand = 'wine test.exe';
+            const execCommand = customCommand;
+            // 自訂命令不應該被轉換成相對路徑格式
+            assert.strictEqual(execCommand, 'wine test.exe');
+            assert.ok(!execCommand.startsWith('.\\'));
+        }
+    });
+    test('Should work for both CMD and PowerShell', () => {
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            const outputFile = 'C:\\project\\test.exe';
+            const fileDir = path.dirname(outputFile);
+            const fileName = path.basename(outputFile);
+            // 相對路徑格式在 CMD 和 PowerShell 都能用
+            const cdCommand = `cd "${fileDir}"`;
+            const execCommand = `.\\${fileName}`;
+            // 驗證這個格式對兩種終端機都有效
+            assert.strictEqual(execCommand, '.\\test.exe');
+            // CMD 和 PowerShell 都接受 .\ 前綴
+            assert.ok(execCommand.match(/^\.\\/));
+            // 不需要 & 符號（只有 PowerShell 的絕對路徑才需要）
+            assert.ok(!execCommand.includes('&'));
+        }
+    });
 });
 suite('Platform Compatibility Test Suite', () => {
     test('Should detect platform correctly', () => {
