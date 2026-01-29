@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("assert"));
+const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const util_1 = require("util");
@@ -118,6 +119,10 @@ function tryDecodeWithFallback(buffer) {
 // ===== 測試套件開始 =====
 suite('Encoding Detection Test Suite', () => {
     const fixturesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'fixtures');
+    teardown(async () => {
+        // 清理測試環境
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    });
     test('Should detect UTF-8 encoding', () => {
         const utf8Content = 'Hello World\n// 這是測試';
         const buffer = Buffer.from(utf8Content, 'utf-8');

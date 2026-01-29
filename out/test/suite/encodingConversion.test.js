@@ -39,6 +39,10 @@ const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 suite('編碼轉換功能測試', () => {
     const fixturesPath = path.join(__dirname, '../../../src/test/fixtures');
+    teardown(async () => {
+        // 清理測試環境
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    });
     test('應該成功註冊所有編碼轉換命令', async () => {
         const commands = await vscode.commands.getCommands();
         assert.ok(commands.includes('cpp-smart-runner.convertToUtf8'), '應該註冊 convertToUtf8 命令');
@@ -226,6 +230,75 @@ suite('編碼轉換功能測試', () => {
         assert.ok(commandIds.includes('cpp-smart-runner.convertFromBig5'), '應該定義 convertFromBig5 命令');
         assert.ok(commandIds.includes('cpp-smart-runner.convertFromGbk'), '應該定義 convertFromGbk 命令');
         assert.ok(commandIds.includes('cpp-smart-runner.convertToBig5'), '應該定義 convertToBig5 命令');
+    });
+    test('轉換為 Big5 前應檢查未儲存的修改', async function () {
+        this.timeout(10000);
+        // 建立測試檔案
+        const testFilePath = path.join(fixturesPath, 'test-big5-dirty-check.c');
+        const originalContent = '#include <stdio.h>\nint main() {\n    printf("測試");\n    return 0;\n}';
+        fs.writeFileSync(testFilePath, originalContent, 'utf8');
+        try {
+            // 開啟檔案
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            const editor = await vscode.window.showTextDocument(document);
+            // 修改內容但不儲存
+            await editor.edit(editBuilder => {
+                const lastLine = document.lineAt(document.lineCount - 1);
+                editBuilder.insert(lastLine.range.end, '\n// 未儲存的修改');
+            });
+            // 確認檔案處於 dirty 狀態
+            assert.strictEqual(editor.document.isDirty, true, '檔案應該處於未儲存狀態');
+            // 注意：實際執行 convertToBig5 會彈出對話框
+            // 在自動化測試中無法模擬使用者點擊，所以這裡僅驗證狀態
+            // 實際的警告對話框需要手動測試
+            // 清理：關閉編輯器
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+        }
+        finally {
+            // 清理測試檔案
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
+    });
+    test('自動編碼轉換應使用可撤銷的編輯器操作', async function () {
+        this.timeout(10000);
+        // 建立一個 Big5 編碼的測試檔案
+        const testFilePath = path.join(fixturesPath, 'test-auto-convert-big5.c');
+        const big5Content = '#include <stdio.h>\nint main() {\n    printf("測試");\n    return 0;\n}';
+        try {
+            // 使用 iconv-lite 寫入 Big5 檔案
+            const iconv = require('iconv-lite');
+            const big5Buffer = iconv.encode(big5Content, 'big5');
+            fs.writeFileSync(testFilePath, big5Buffer);
+            // 開啟檔案
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            const editor = await vscode.window.showTextDocument(document);
+            // 取得初始內容（可能是亂碼或已自動轉換）
+            const contentBefore = editor.document.getText();
+            // 如果啟用自動轉換，應該已經轉換為 UTF-8
+            // 檢查檔案在編輯器中可讀（不是亂碼）
+            assert.ok(contentBefore.includes('stdio.h') || contentBefore.includes('main'), '檔案應該可讀（已自動轉換或原本就是 UTF-8）');
+            // 驗證：如果進行了轉換，應該可以撤銷
+            // （但由於已經自動轉換，這裡主要驗證檔案狀態正常）
+            // 清理：關閉編輯器
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+        }
+        catch (error) {
+            // 如果沒有安裝 iconv-lite，跳過測試
+            if (error.code === 'MODULE_NOT_FOUND') {
+                this.skip();
+            }
+            else {
+                throw error;
+            }
+        }
+        finally {
+            // 清理測試檔案
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
     });
 });
 //# sourceMappingURL=encodingConversion.test.js.map

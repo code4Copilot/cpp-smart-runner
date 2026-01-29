@@ -6,6 +6,11 @@ import * as fs from 'fs';
 suite('Extension Activation Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
 
+    teardown(async () => {
+        // 關閉所有編輯器以避免資源洩漏
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    });
+
     test('Extension should be present', () => {
         assert.ok(vscode.extensions.getExtension('hueyanchen.cpp-smart-runner'));
     });

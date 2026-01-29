@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { TextDecoder } from 'util';
@@ -97,6 +98,11 @@ function tryDecodeWithFallback(buffer: Buffer): { content: string, encoding: str
 
 suite('Encoding Detection Test Suite', () => {
     const fixturesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'fixtures');
+
+    teardown(async () => {
+        // 清理測試環境
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    });
 
     test('Should detect UTF-8 encoding', () => {
         const utf8Content = 'Hello World\n// 這是測試';

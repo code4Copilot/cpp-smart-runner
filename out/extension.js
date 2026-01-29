@@ -44,7 +44,10 @@ const util_2 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 let outputChannel;
 function activate(context) {
-    outputChannel = vscode.window.createOutputChannel('C/C++ Smart Runner');
+    // 避免重複創建 outputChannel（測試環境可能多次啟動）
+    if (!outputChannel) {
+        outputChannel = vscode.window.createOutputChannel('C/C++ Smart Runner');
+    }
     // 註冊編譯命令
     let compileCommand = vscode.commands.registerCommand('cpp-smart-runner.compile', async () => {
         await compileCurrentFile();
@@ -255,6 +258,14 @@ async function handleEncodingConversion(target, sourceEncoding = 'auto') {
         }
         else {
             // 轉換為 Big5
+            // ✅ 檢查是否有未儲存的修改
+            if (document.isDirty) {
+                const action = await vscode.window.showWarningMessage('⚠️ 檔案有未儲存的修改，轉換為 Big5 前需要先儲存', '儲存並轉換', '取消');
+                if (action !== '儲存並轉換') {
+                    return;
+                }
+                await document.save();
+            }
             const content = document.getText();
             try {
                 const iconv = require('iconv-lite');
@@ -301,10 +312,19 @@ async function compileCurrentFile() {
             if (currentEncoding !== 'utf8') {
                 const result = tryDecodeWithFallback(buffer);
                 if (result) {
-                    fs.writeFileSync(sourceFile, result.content, 'utf8');
-                    outputChannel.appendLine(`>>> 偵測到 ${result.encoding.toUpperCase()} 編碼,已自動轉換為 UTF-8`);
-                    // 重新載入檔案
-                    await vscode.commands.executeCommand('workbench.action.files.revert');
+                    // ✅ 使用 editor.edit() 使轉換可撤銷
+                    const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+                    const success = await editor.edit(editBuilder => {
+                        editBuilder.replace(fullRange, result.content);
+                    });
+                    if (success) {
+                        outputChannel.appendLine(`>>> 偵測到 ${result.encoding.toUpperCase()} 編碼,已自動轉換為 UTF-8`);
+                        // 自動儲存轉換後的內容
+                        await document.save();
+                    }
+                    else {
+                        outputChannel.appendLine('>>> 編碼轉換失敗,使用原始編碼繼續編譯');
+                    }
                 }
                 else {
                     outputChannel.appendLine('>>> 編碼偵測失敗,使用原始編碼繼續編譯');

@@ -38,6 +38,12 @@ const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 suite('Integration Test Suite', () => {
     const fixturesPath = path.join(__dirname, '..', '..', '..', 'src', 'test', 'fixtures');
+    let openedDocuments = [];
+    teardown(async () => {
+        // 關閉所有測試中開啟的文件
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+        openedDocuments = [];
+    });
     test('Should open C file and detect language', async () => {
         const testFile = path.join(fixturesPath, 'test.c');
         const document = await vscode.workspace.openTextDocument(testFile);
@@ -116,6 +122,19 @@ suite('File Watcher Test Suite', () => {
     });
 });
 suite('Terminal Configuration Test Suite', () => {
+    let disposables = [];
+    teardown(() => {
+        // 清理所有 disposable 資源
+        disposables.forEach(d => {
+            try {
+                d.dispose();
+            }
+            catch (e) {
+                // 忽略已經 disposed 的錯誤
+            }
+        });
+        disposables = [];
+    });
     test('Should support clearTerminal configuration', () => {
         const config = vscode.workspace.getConfiguration('cpp-smart-runner');
         const clearTerminal = config.get('clearTerminal');

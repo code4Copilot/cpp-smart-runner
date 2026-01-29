@@ -1,9 +1,21 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
+
+## ✨ 版本 1.1.1 修正
+
+- **🐛 Big5 轉換前檢查未儲存修改** - 防止資料丟失
+  - 在轉換為 Big5 前會先檢查是否有未儲存的修改
+  - 如有未儲存內容會彈出警告，讓使用者選擇儲存或取消
+  - 避免未儲存的編輯被覆蓋
+
+- **🔄 自動編碼轉換改為可撤銷** - 行為一致性改進
+  - 編譯時的自動編碼轉換現在也使用可撤銷的編輯器操作
+  - 與手動轉換行為保持一致
+  - 提供更好的使用者體驗
 
 ## ✨ 版本 1.1.0 新功能
 
