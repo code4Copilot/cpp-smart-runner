@@ -1,6 +1,6 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/hueyanchen/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
@@ -593,10 +593,10 @@ Hueyan Chen (hueyan.chen@gmail.com)
 
 ## 回饋與貢獻
 
-歡迎在 [GitHub](https://github.com/hueyanchen/cpp-smart-runner) 上：
-- 🐛 回報問題：[Issues](https://github.com/hueyanchen/cpp-smart-runner/issues)
-- 💡 提出建議：[Discussions](https://github.com/hueyanchen/cpp-smart-runner/discussions)
-- 🔧 貢獻程式碼：[Pull Requests](https://github.com/hueyanchen/cpp-smart-runner/pulls)
+歡迎在 [GitHub](https://github.com/code4Copilot/cpp-smart-runner) 上：
+- 🐛 回報問題：[Issues](https://github.com/code4Copilot/cpp-smart-runner/issues)
+- 💡 提出建議：[Discussions](https://github.com/code4Copilot/cpp-smart-runner/discussions)
+- 🔧 貢獻程式碼：[Pull Requests](https://github.com/code4Copilot/cpp-smart-runner/pulls)
 
 ### 貢獻指南
 
@@ -618,4 +618,4 @@ Hueyan Chen (hueyan.chen@gmail.com)
 ---
 
 **C/C++ Smart Runner** - 讓 C/C++ 開發更簡單、更智慧  
-版本 1.0.6 © 2026 Hueyan Chen
+版本 1.1.1 © 2026 Hueyan Chen
