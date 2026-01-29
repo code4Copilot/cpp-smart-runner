@@ -9,13 +9,20 @@
 
 查看完整版本歷史：[CHANGELOG.md](CHANGELOG.md)
 
-## ✨ 版本 1.1.3 修正
+## ✨ 版本 1.1.3 修正與改進
 
 - **🔧 統一執行命令格式** - 解決 PowerShell 執行路徑問題
   - 修正 `useCustomCommand` 預設值從 `true` 改為 `false`
   - 統一使用 `cd` 切換目錄 + `.\filename.exe` 相對路徑執行
   - 此格式在 CMD 和 PowerShell 都能正常運作
   - 解決之前顯示完整路徑字串而非可執行命令的問題
+
+- **⚙️ 新增語言標準設定選項** - 支援 Dev-C++ 和新版 C/C++ 標準
+  - C++ 預設標準改為 `-std=c++11`（支援 Dev-C++ 的 g++）
+  - 新增 `cStandard` 設定（預設：`-std=c11`）
+  - 新增 `cppStandard` 設定（預設：`-std=c++11`）
+  - 可輕鬆修改為 C99/C17/C++14/C++17/C++20 等版本
+  - 無需完全自訂編譯命令，保持自動判斷功能
 
 ## ✨ 版本 1.1.2 修正
 
@@ -214,6 +221,8 @@ g++ "檔案.cpp" -std=c++11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2
 {
   "cpp-smart-runner.compilerPath": "",
   "cpp-smart-runner.compilerFlags": "-Wall -O2",
+  "cpp-smart-runner.cStandard": "-std=c11",
+  "cpp-smart-runner.cppStandard": "-std=c++11",
   "cpp-smart-runner.outputDir": "",
   "cpp-smart-runner.clearTerminal": true,
   "cpp-smart-runner.saveBeforeCompile": true,
@@ -238,7 +247,9 @@ g++ "檔案.cpp" -std=c++11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2
 - **customCompileCommand**: 自訂編譯命令（留空則自動根據語言選擇 gcc/g++）
 - **customRunCommand**: 自訂執行命令（預設：`"$dir/$fileNameWithoutExt.exe"`）
 - **compilerPath**: 編譯器路徑（已廢棄，請使用 customCompileCommand）
-- **compilerFlags**: 編譯器通用參數（預設：`-Wall -O2`，語言標準由程式自動判斷）
+- **compilerFlags**: 編譯器通用參數（預設：`-Wall -O2`）
+- **cStandard**: C 語言標準（預設：`-std=c11`，可改為 c99/c17/c2x 等）
+- **cppStandard**: C++ 語言標準（預設：`-std=c++11`，可改為 c++14/c++17/c++20/c++23 等）
 - **outputDir**: 輸出目錄（已廢棄，請使用 customCompileCommand）
 - **clearTerminal**: 執行前是否清除終端機（預設：true）
 - **saveBeforeCompile**: 編譯前自動儲存檔案（預設：true）
@@ -271,28 +282,46 @@ g++ "檔案.cpp" -std=c++11 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2
 ```
 ※ 語言標準（`-std=c11` 或 `-std=c++11`）會自動加入，不需手動設定
 
-#### 範例 2：修改語言標準（需要完全自訂命令）
+#### 範例 2：修改語言標準（推薦方式）
 ```json
 {
+  "cpp-smart-runner.cStandard": "-std=c17",
+  "cpp-smart-runner.cppStandard": "-std=c++20"
+}
+```
+※ 這樣可以保持自動判斷 C/C++ 的功能，只需修改標準版本
+
+#### 範例 3：使用 C99 和 C++14 標準
+```json
+{
+  "cpp-smart-runner.cStandard": "-std=c99",
+  "cpp-smart-runner.cppStandard": "-std=c++14"
+}
+```
+
+#### 範例 4：完全自訂編譯命令
+```json
+{
+  "cpp-smart-runner.useCustomCommand": true,
   "cpp-smart-runner.customCompileCommand": "gcc \"$fullFileName\" -std=c17 -finput-charset=utf-8 -fexec-charset=utf-8 -Wall -O2 -o \"$dir/$fileNameWithoutExt.exe\""
 }
 ```
 
-#### 範例 3：完全自訂 C 編譯命令
+#### 範例 5：完全自訂 C 編譯命令
 ```json
 {
   "cpp-smart-runner.customCompileCommand": "gcc \"$fullFileName\" -o \"$dir/$fileNameWithoutExt.exe\" -Wall -Wextra -std=c11"
 }
 ```
 
-#### 範例 4：完全自訂 C++ 編譯命令
+#### 範例 6：完全自訂 C++ 編譯命令
 ```json
 {
   "cpp-smart-runner.customCompileCommand": "chcp 65001 > nul && g++ \"$fullFileName\" -o \"$dir/$fileNameWithoutExt.exe\" -Wall -std=c++20"
 }
 ```
 
-#### 範例 5：輸出到 build 目錄
+#### 範例 7：輸出到 build 目錄
 ```json
 {
   "cpp-smart-runner.customCompileCommand": "chcp 65001 > nul && g++ \"$fullFileName\" -o \"$workspaceFolder/build/$fileNameWithoutExt.exe\"",

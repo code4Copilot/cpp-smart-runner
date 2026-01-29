@@ -348,7 +348,7 @@ async function compileCurrentFile(): Promise<boolean> {
         // 使用預設編譯命令
         const compiler = getCompiler(languageId, config);
         const outputFile = getOutputPath(sourceFile, config);
-        const extraFlags = config.get<string>('compilerFlags', '-Wall -Wextra');
+        const extraFlags = config.get<string>('compilerFlags', '-Wall -O2');
         const standard = languageId === 'cpp' 
             ? config.get<string>('cppStandard', '-std=c++11')
             : config.get<string>('cStandard', '-std=c11');
@@ -530,7 +530,7 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     
     if (useCustomCommand) {
         // 使用自訂命令
-        const customCommand = config.get<string>('customRunCommand', '');
+        const customCommand = config.get<string>('customRunCommand', '"$dir/$fileNameWithoutExt.exe"');
         if (!customCommand) {
             vscode.window.showErrorMessage('未設定自訂執行命令,請在設定中配置 cpp-smart-runner.customRunCommand');
             return;
