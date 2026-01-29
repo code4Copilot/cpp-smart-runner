@@ -266,16 +266,25 @@ async function handleEncodingConversion(target, sourceEncoding = 'auto') {
                 }
                 await document.save();
             }
+            // 📋 提示用戶這是單向操作
+            const confirmAction = await vscode.window.showWarningMessage('⚠️ 轉換為 Big5 後，VS Code 將無法正確顯示此檔案。\n' +
+                '檔案將被儲存為 ANSI Big5 編碼並關閉，請使用 Dev-C++ 等支援 Big5 的編輯器開啟。\n' +
+                '若要在 VS Code 繼續編輯，請使用「轉換為 UTF-8」功能。', { modal: true }, '確定轉換', '取消');
+            if (confirmAction !== '確定轉換') {
+                return;
+            }
             const content = document.getText();
             try {
                 const iconv = require('iconv-lite');
                 const big5Buffer = iconv.encode(content, 'big5');
-                // ⚠️ 轉換為 Big5 仍需寫入檔案並重新載入
-                // 因為 VS Code 的編輯器無法直接顯示 Big5
+                // 💾 直接寫入 Big5 編碼檔案（ANSI 格式）
                 fs.writeFileSync(filePath, big5Buffer);
-                vscode.window.showInformationMessage('💾 已成功轉換為 Big5 (相容 Dev-C++)');
-                // 重新載入檔案
-                await vscode.commands.executeCommand('workbench.action.files.revert');
+                // 🚪 關閉檔案（避免在 VS Code 中顯示為亂碼）
+                await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+                // ✅ 顯示成功訊息
+                vscode.window.showInformationMessage('✅ 已成功轉換並儲存為 Big5 (ANSI) 編碼\n' +
+                    '📝 請使用 Dev-C++ 或其他支援 Big5 的編輯器開啟\n' +
+                    '💡 若要在 VS Code 繼續編輯，請重新開啟並使用「轉換為 UTF-8」功能');
             }
             catch (requireError) {
                 vscode.window.showErrorMessage('未安裝 iconv-lite 套件，請執行: npm install iconv-lite');

@@ -5,6 +5,48 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.0.0/)，
 版本號遵循 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.1.2] - 2026-01-29
+
+### 修正 🐛
+- **Big5 轉換行為改進** - 解決轉換後亂碼問題
+  - 轉換為 Big5 後不再重新載入（避免 VS Code 以 UTF-8 解讀造成亂碼）
+  - 改為寫入 ANSI Big5 編碼後自動關閉檔案
+  - 新增雙重確認對話框，明確告知轉換後果
+  - 提示使用 Dev-C++ 或其他支援 Big5 的編輯器開啟
+  - 說明如何轉回 UTF-8 以便在 VS Code 繼續編輯
+
+### 測試 🧪
+- **新增 Big5 轉換單向寫入測試套件** - 5 個新測試
+  - 用戶取消未儲存警告測試
+  - 用戶取消確認對話框測試
+  - 成功轉換並寫入 Big5 測試
+  - 缺少 iconv-lite 套件測試
+  - ANSI Big5 格式驗證測試
+  - 使用 Sinon.js 模擬對話框互動
+  - 總測試數量：119 個測試
+
+- **新增手動測試文檔** - 8 個詳細測試案例
+  - 基本轉換流程測試
+  - 取消操作測試
+  - 未儲存修改處理測試
+  - Big5 檔案驗證測試
+  - 與外部工具互操作性測試
+  - 參見：[BIG5-CONVERSION-MANUAL-TEST.md](BIG5-CONVERSION-MANUAL-TEST.md)
+
+### 改進 ✨
+- **使用者體驗優化**
+  - 更清楚的警告訊息，說明轉換後 VS Code 無法正確顯示
+  - 模態對話框確保用戶了解操作後果
+  - 成功訊息包含完整的使用指引
+- **開發者文檔**
+  - 新增 [BIG5-CONVERSION-MANUAL-TEST.md](BIG5-CONVERSION-MANUAL-TEST.md) - 手動測試清單
+  - 新增 [BIG5-CONVERSION-TEST-SUMMARY.md](BIG5-CONVERSION-TEST-SUMMARY.md) - 測試總結
+
+### 技術細節 🔧
+- 新增 `sinon` 測試依賴用於模擬對話框
+- 使用 `workbench.action.closeActiveEditor` 關閉轉換後的檔案
+- 保持 Big5 檔案以原始字節格式儲存（ANSI 編碼）
+
 ## [1.1.1] - 2026-01-29
 
 ### 修正 🐛

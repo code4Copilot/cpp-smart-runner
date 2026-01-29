@@ -2,7 +2,7 @@
   "name": "cpp-smart-runner",
   "displayName": "C/C++ Smart Runner",
   "description": "安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "publisher": "hueyanchen",
   "author": {
     "name": "Hueyan Chen",
@@ -223,6 +223,7 @@
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "^18.x",
+    "@types/sinon": "^17.0.0",
     "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
@@ -230,6 +231,7 @@
     "eslint": "^8.0.0",
     "glob": "^10.3.10",
     "mocha": "^10.3.0",
+    "sinon": "^17.0.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {

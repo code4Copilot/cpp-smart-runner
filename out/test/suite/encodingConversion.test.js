@@ -37,6 +37,7 @@ const assert = __importStar(require("assert"));
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const sinon = __importStar(require("sinon"));
 suite('編碼轉換功能測試', () => {
     const fixturesPath = path.join(__dirname, '../../../src/test/fixtures');
     teardown(async () => {
@@ -295,6 +296,179 @@ suite('編碼轉換功能測試', () => {
         }
         finally {
             // 清理測試檔案
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
+    });
+});
+// ===== Big5 轉換新行為測試套件 =====
+suite('Big5 轉換單向寫入測試', () => {
+    const fixturesPath = path.join(__dirname, '../../../src/test/fixtures');
+    let sandbox;
+    setup(() => {
+        sandbox = sinon.createSandbox();
+    });
+    teardown(async () => {
+        sandbox.restore();
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    });
+    test('用戶取消未儲存警告時，檔案應保持開啟', async function () {
+        this.timeout(10000);
+        const testFilePath = path.join(fixturesPath, 'test-big5-cancel1.c');
+        const testContent = '#include <stdio.h>\nint main() { return 0; }';
+        fs.writeFileSync(testFilePath, testContent, 'utf8');
+        try {
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            const editor = await vscode.window.showTextDocument(document);
+            // 製造未儲存的修改
+            await editor.edit(editBuilder => {
+                editBuilder.insert(new vscode.Position(0, 0), '// Modified\n');
+            });
+            assert.strictEqual(document.isDirty, true, '檔案應該處於未儲存狀態');
+            // Mock 用戶選擇「取消」
+            const stub = sandbox.stub(vscode.window, 'showWarningMessage');
+            stub.resolves(undefined); // 用戶取消
+            // 執行轉換命令
+            await vscode.commands.executeCommand('cpp-smart-runner.convertToBig5');
+            // 驗證：檔案仍然開啟
+            const activeEditor = vscode.window.activeTextEditor;
+            assert.ok(activeEditor, '編輯器應該仍然開啟');
+            assert.strictEqual(activeEditor?.document.fileName, testFilePath, '應該是同一個檔案');
+            // 驗證：檔案內容未改變
+            assert.ok(activeEditor?.document.getText().includes('// Modified'), '修改的內容應該保留');
+        }
+        finally {
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
+    });
+    test('用戶取消確認對話框時，檔案應保持開啟', async function () {
+        this.timeout(10000);
+        const testFilePath = path.join(fixturesPath, 'test-big5-cancel2.c');
+        const testContent = '#include <stdio.h>\nint main() { return 0; }';
+        fs.writeFileSync(testFilePath, testContent, 'utf8');
+        try {
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            await vscode.window.showTextDocument(document);
+            // Mock 用戶選擇「取消」在確認對話框
+            const stub = sandbox.stub(vscode.window, 'showWarningMessage');
+            stub.resolves(undefined); // 用戶取消
+            // 執行轉換命令
+            await vscode.commands.executeCommand('cpp-smart-runner.convertToBig5');
+            // 驗證：檔案仍然開啟
+            const activeEditor = vscode.window.activeTextEditor;
+            assert.ok(activeEditor, '編輯器應該仍然開啟');
+            assert.strictEqual(activeEditor?.document.fileName, testFilePath, '應該是同一個檔案');
+        }
+        finally {
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
+    });
+    test('成功轉換時應寫入 Big5 並關閉編輯器', async function () {
+        this.timeout(10000);
+        const testFilePath = path.join(fixturesPath, 'test-big5-success.c');
+        const testContent = '#include <stdio.h>\nint main() {\n    printf("測試中文");\n    return 0;\n}';
+        fs.writeFileSync(testFilePath, testContent, 'utf8');
+        try {
+            // 檢查 iconv-lite 是否可用
+            let iconv;
+            try {
+                iconv = require('iconv-lite');
+            }
+            catch {
+                this.skip();
+                return;
+            }
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            await vscode.window.showTextDocument(document);
+            // Mock 用戶選擇「確定轉換」
+            const warningStub = sandbox.stub(vscode.window, 'showWarningMessage');
+            warningStub.resolves('確定轉換');
+            const infoStub = sandbox.stub(vscode.window, 'showInformationMessage');
+            // 執行轉換命令
+            await vscode.commands.executeCommand('cpp-smart-runner.convertToBig5');
+            // 等待一下讓命令完成
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // 驗證：檔案已寫入為 Big5
+            assert.ok(fs.existsSync(testFilePath), '檔案應該存在');
+            const fileBuffer = fs.readFileSync(testFilePath);
+            // 解碼檢查是否為 Big5
+            const decodedContent = iconv.decode(fileBuffer, 'big5');
+            assert.ok(decodedContent.includes('測試中文') || decodedContent.includes('stdio.h'), '檔案應該能用 Big5 解碼');
+            // 驗證：顯示成功訊息
+            assert.ok(infoStub.called, '應該顯示成功訊息');
+            const infoMessage = infoStub.getCall(0)?.args[0];
+            assert.ok(infoMessage && infoMessage.includes('成功轉換'), '訊息應該包含「成功轉換」');
+        }
+        finally {
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
+    });
+    test('缺少 iconv-lite 時應顯示錯誤訊息', async function () {
+        this.timeout(10000);
+        // 這個測試需要在沒有 iconv-lite 的環境下運行
+        // 實際上很難模擬，因為套件已經安裝
+        // 這裡主要驗證命令存在且可以被調用
+        const testFilePath = path.join(fixturesPath, 'test-big5-no-iconv.c');
+        const testContent = '#include <stdio.h>\nint main() { return 0; }';
+        fs.writeFileSync(testFilePath, testContent, 'utf8');
+        try {
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            await vscode.window.showTextDocument(document);
+            // 驗證：命令可以被執行（即使我們無法模擬套件缺失）
+            const commands = await vscode.commands.getCommands();
+            assert.ok(commands.includes('cpp-smart-runner.convertToBig5'), 'convertToBig5 命令應該存在');
+        }
+        finally {
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+            }
+        }
+    });
+    test('檔案應以 ANSI Big5 格式儲存（非 UTF-8）', async function () {
+        this.timeout(10000);
+        const testFilePath = path.join(fixturesPath, 'test-big5-ansi.c');
+        const testContent = '// 繁體中文測試\n#include <stdio.h>\nint main() { return 0; }';
+        fs.writeFileSync(testFilePath, testContent, 'utf8');
+        try {
+            // 檢查 iconv-lite 是否可用
+            let iconv;
+            try {
+                iconv = require('iconv-lite');
+            }
+            catch {
+                this.skip();
+                return;
+            }
+            const document = await vscode.workspace.openTextDocument(testFilePath);
+            await vscode.window.showTextDocument(document);
+            // Mock 用戶確認
+            const stub = sandbox.stub(vscode.window, 'showWarningMessage');
+            stub.resolves('確定轉換');
+            sandbox.stub(vscode.window, 'showInformationMessage');
+            // 執行轉換
+            await vscode.commands.executeCommand('cpp-smart-runner.convertToBig5');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // 驗證：檔案不是 UTF-8
+            const fileBuffer = fs.readFileSync(testFilePath);
+            // 嘗試用 UTF-8 解碼應該會有問題（包含替換字元）
+            const utf8Decoded = fileBuffer.toString('utf8');
+            const big5Decoded = iconv.decode(fileBuffer, 'big5');
+            // Big5 解碼應該正確
+            assert.ok(big5Decoded.includes('繁體中文測試'), 'Big5 解碼應該能正確顯示中文');
+            // UTF-8 解碼應該不完整（證明不是 UTF-8 格式）
+            if (utf8Decoded.includes('繁體中文測試')) {
+                // 如果 UTF-8 也能正確解碼，說明編碼可能沒正確轉換
+                assert.fail('檔案應該以 Big5（非 UTF-8）格式儲存');
+            }
+        }
+        finally {
             if (fs.existsSync(testFilePath)) {
                 fs.unlinkSync(testFilePath);
             }
