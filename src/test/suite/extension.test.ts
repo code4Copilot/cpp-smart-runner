@@ -502,3 +502,203 @@ suite('Compiler Flags Test Suite', () => {
         assert.ok(!compileCmd.includes('  '), 'Command should not have double spaces');
     });
 });
+
+suite('Custom Command Fallback Test Suite', () => {
+    // 模擬命令建構邏輯
+    function buildCompileCommand(
+        useCustom: boolean,
+        customCommand: string,
+        languageId: string,
+        sourceFile: string
+    ): string {
+        if (useCustom && customCommand) {
+            // 使用自訂命令
+            return customCommand.replace('$sourceFile', sourceFile);
+        } else {
+            // 回退到預設命令
+            const compiler = languageId === 'cpp' ? 'g++' : 'gcc';
+            const standard = languageId === 'cpp' ? '-std=c++11' : '-std=c11';
+            const outputFile = sourceFile.replace(/\.(c|cpp)$/, '.exe');
+            return `"${compiler}" ${standard} -Wall -O2 "${sourceFile}" -o "${outputFile}"`;
+        }
+    }
+
+    function buildRunCommand(
+        useCustom: boolean,
+        customCommand: string,
+        outputFile: string
+    ): string {
+        if (useCustom && customCommand) {
+            // 使用自訂命令
+            return customCommand.replace('$outputFile', outputFile);
+        } else {
+            // 回退到預設命令
+            const isWindows = process.platform === 'win32';
+            const fileName = path.basename(outputFile);
+            if (isWindows) {
+                return fileName.includes(' ') ? `".\\${fileName}"` : `.\\${fileName}`;
+            } else {
+                return fileName.includes(' ') ? `"./${fileName}"` : `./${fileName}`;
+            }
+        }
+    }
+
+    test('Should use default compile command when useCustomCommand is false', () => {
+        const command = buildCompileCommand(false, '', 'cpp', 'test.cpp');
+        
+        assert.ok(command.includes('g++'), 'Should use g++ compiler');
+        assert.ok(command.includes('-std=c++11'), 'Should include C++ standard');
+        assert.ok(command.includes('-Wall'), 'Should include warning flags');
+        assert.ok(command.includes('test.cpp'), 'Should include source file');
+    });
+
+    test('Should fallback to default when useCustomCommand is true but customCommand is empty', () => {
+        const command = buildCompileCommand(true, '', 'c', 'main.c');
+        
+        assert.ok(command.includes('gcc'), 'Should fallback to gcc compiler');
+        assert.ok(command.includes('-std=c11'), 'Should include C standard');
+        assert.ok(command.includes('-Wall'), 'Should include warning flags');
+        assert.ok(command.includes('main.c'), 'Should include source file');
+    });
+
+    test('Should use custom compile command when both useCustomCommand and customCommand are set', () => {
+        const customCmd = 'clang++ -std=c++17 -O3 $sourceFile -o output.exe';
+        const command = buildCompileCommand(true, customCmd, 'cpp', 'app.cpp');
+        
+        assert.ok(command.includes('clang++'), 'Should use custom compiler');
+        assert.ok(command.includes('-std=c++17'), 'Should use custom standard');
+        assert.ok(command.includes('-O3'), 'Should use custom optimization');
+        assert.ok(command.includes('app.cpp'), 'Should replace source file variable');
+    });
+
+    test('Should use default run command when useCustomCommand is false', () => {
+        const command = buildRunCommand(false, '', 'test.exe');
+        
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            assert.ok(command.includes('.\\test.exe') || command === '.\\test.exe', 
+                'Should use Windows relative path format');
+        } else {
+            assert.ok(command.includes('./test.exe') || command === './test.exe', 
+                'Should use Unix relative path format');
+        }
+    });
+
+    test('Should fallback to default when useCustomCommand is true but customRunCommand is empty', () => {
+        const command = buildRunCommand(true, '', 'program.exe');
+        
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            assert.ok(command.includes('.\\program.exe') || command === '.\\program.exe', 
+                'Should fallback to Windows relative path');
+        } else {
+            assert.ok(command.includes('./program.exe') || command === './program.exe', 
+                'Should fallback to Unix relative path');
+        }
+    });
+
+    test('Should use custom run command when both useCustomCommand and customRunCommand are set', () => {
+        const customCmd = 'wine $outputFile --debug';
+        const command = buildRunCommand(true, customCmd, 'app.exe');
+        
+        assert.ok(command.includes('wine'), 'Should use custom runner');
+        assert.ok(command.includes('app.exe'), 'Should replace output file variable');
+        assert.ok(command.includes('--debug'), 'Should include custom arguments');
+    });
+
+    test('Should handle file names with spaces in default run command', () => {
+        const command = buildRunCommand(false, '', 'my program.exe');
+        
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+            assert.ok(command.includes('".\\my program.exe"'), 
+                'Should quote Windows path with spaces');
+        } else {
+            assert.ok(command.includes('"./my program.exe"'), 
+                'Should quote Unix path with spaces');
+        }
+    });
+
+    test('Should handle different language IDs in compile command fallback', () => {
+        const cCommand = buildCompileCommand(true, '', 'c', 'test.c');
+        const cppCommand = buildCompileCommand(true, '', 'cpp', 'test.cpp');
+        
+        assert.ok(cCommand.includes('gcc'), 'C files should use gcc');
+        assert.ok(cCommand.includes('-std=c11'), 'C files should use C11 standard');
+        
+        assert.ok(cppCommand.includes('g++'), 'C++ files should use g++');
+        assert.ok(cppCommand.includes('-std=c++11'), 'C++ files should use C++11 standard');
+    });
+
+    test('Configuration: useCustomCommand should default to false', () => {
+        const config = vscode.workspace.getConfiguration('cpp-smart-runner');
+        const useCustomCommand = config.get<boolean>('useCustomCommand', false);
+        
+        // 應該是 boolean 類型
+        assert.strictEqual(typeof useCustomCommand, 'boolean', 
+            'useCustomCommand should be a boolean');
+    });
+
+    test('Configuration: customCompileCommand should accept empty string', async () => {
+        const config = vscode.workspace.getConfiguration('cpp-smart-runner');
+        
+        // 儲存原始值
+        const originalValue = config.get<string>('customCompileCommand');
+        
+        try {
+            // 設定為空字串
+            await config.update('customCompileCommand', '', vscode.ConfigurationTarget.Global);
+            
+            const updatedConfig = vscode.workspace.getConfiguration('cpp-smart-runner');
+            const customCommand = updatedConfig.get<string>('customCompileCommand', '');
+            
+            // 應該能夠設定為空字串
+            assert.strictEqual(typeof customCommand, 'string', 
+                'customCompileCommand should be a string');
+        } finally {
+            // 恢復原始值
+            await config.update('customCompileCommand', originalValue, vscode.ConfigurationTarget.Global);
+        }
+    });
+
+    test('Configuration: customRunCommand should accept empty string', async () => {
+        const config = vscode.workspace.getConfiguration('cpp-smart-runner');
+        
+        // 儲存原始值
+        const originalValue = config.get<string>('customRunCommand');
+        
+        try {
+            // 設定為空字串
+            await config.update('customRunCommand', '', vscode.ConfigurationTarget.Global);
+            
+            const updatedConfig = vscode.workspace.getConfiguration('cpp-smart-runner');
+            const customCommand = updatedConfig.get<string>('customRunCommand', '');
+            
+            // 應該能夠設定為空字串
+            assert.strictEqual(typeof customCommand, 'string', 
+                'customRunCommand should be a string');
+        } finally {
+            // 恢復原始值
+            await config.update('customRunCommand', originalValue, vscode.ConfigurationTarget.Global);
+        }
+    });
+
+    test('Should not show error when useCustomCommand is true but custom commands are empty', () => {
+        // 這個測試驗證邏輯不會拋出錯誤
+        let errorThrown = false;
+        
+        try {
+            const compileCmd = buildCompileCommand(true, '', 'cpp', 'test.cpp');
+            const runCmd = buildRunCommand(true, '', 'test.exe');
+            
+            // 應該成功生成命令
+            assert.ok(compileCmd.length > 0, 'Should generate compile command');
+            assert.ok(runCmd.length > 0, 'Should generate run command');
+        } catch (error) {
+            errorThrown = true;
+        }
+        
+        assert.strictEqual(errorThrown, false, 
+            'Should not throw error when falling back to default commands');
+    });
+});

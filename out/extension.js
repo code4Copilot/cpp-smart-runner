@@ -311,12 +311,10 @@ async function compileCurrentFile() {
     const vars = getCommandVariables(sourceFile);
     let compileCommand;
     // 檢查是否使用自訂命令
-    if (config.get('useCustomCommand', false)) {
-        const customCommand = config.get('customCompileCommand', '');
-        if (!customCommand) {
-            vscode.window.showErrorMessage('未設定自訂編譯命令,請在設定中配置 cpp-smart-runner.customCompileCommand');
-            return false;
-        }
+    const useCustom = config.get('useCustomCommand', false);
+    const customCommand = config.get('customCompileCommand', '');
+    if (useCustom && customCommand) {
+        // 使用自訂命令
         compileCommand = replaceVariables(customCommand, vars);
     }
     else {
@@ -472,14 +470,10 @@ async function runCurrentFile(skipTimeCheck = false) {
     const fileName = path.basename(outputFile);
     // 統一先切換到檔案所在目錄（自訂和預設命令都需要）
     terminal.sendText(`cd "${fileDir}"`, true);
-    if (useCustomCommand) {
+    const customRunCommand = config.get('customRunCommand', '');
+    if (useCustomCommand && customRunCommand) {
         // 使用自訂命令
-        const customCommand = config.get('customRunCommand', '"$dir/$fileNameWithoutExt.exe"');
-        if (!customCommand) {
-            vscode.window.showErrorMessage('未設定自訂執行命令,請在設定中配置 cpp-smart-runner.customRunCommand');
-            return;
-        }
-        execCommand = replaceVariables(customCommand, vars);
+        execCommand = replaceVariables(customRunCommand, vars);
         if (config.get('showExecutionMessage', true)) {
             outputChannel.appendLine('');
             outputChannel.appendLine('==================== 執行程式 ====================');

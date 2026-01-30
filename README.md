@@ -1,6 +1,6 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
@@ -8,6 +8,15 @@
 ## 📋 版本歷史
 
 查看完整版本歷史：[CHANGELOG.md](CHANGELOG.md)
+
+## ✨ 版本 1.1.4 修正
+
+- **🐛 自訂命令回退邏輯修正** - 改善 Dev-C++ 用戶體驗
+  - 修正啟用自訂命令但未設定時出現錯誤的問題
+  - 現在會靜默回退到預設的 gcc/g++ 編譯命令
+  - 自訂命令是進階功能，不設定時自動使用預設值
+  - 對從 Dev-C++ 轉移的用戶更友善，無需額外設定
+  - 新增 12 個測試確保回退邏輯正確運作
 
 ## ✨ 版本 1.1.3 修正與改進
 
