@@ -1,6 +1,6 @@
 # C/C++ Smart Runner
 
-[![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
+[![Version](https://img.shields.io/badge/version-1.1.5-blue.svg)](https://github.com/code4Copilot/cpp-smart-runner)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 
 一個智慧的 VS Code 擴充套件，專門用於安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能。
@@ -8,6 +8,15 @@
 ## 📋 版本歷史
 
 查看完整版本歷史：[CHANGELOG.md](CHANGELOG.md)
+
+## ✨ 版本 1.1.5 修正
+
+- **🐛 終端機重用機制** - 解決多次執行累積終端機視窗的問題
+  - 修正每次執行都創建新終端機導致視窗累積的問題
+  - 實作終端機重用邏輯，始終使用同一個「C/C++ Runner」終端機
+  - 終端機關閉後能自動偵測並重新創建
+  - 改善資源管理和使用者體驗
+  - 新增 8 個測試確保終端機重用機制正確運作
 
 ## ✨ 版本 1.1.4 修正
 

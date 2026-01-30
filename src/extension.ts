@@ -8,6 +8,7 @@ import { TextDecoder, TextEncoder } from 'util';
 const execAsync = promisify(exec);
 
 let outputChannel: vscode.OutputChannel;
+let runnerTerminal: vscode.Terminal | undefined;
 
 interface CommandVariables {
     fileName: string;              // 檔名(含副檔名)例如: test.cpp
@@ -479,11 +480,14 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
         }
     }
     
-    // 建立終端機並執行
-    const terminal = vscode.window.createTerminal({
-        name: 'C/C++ Runner'
-    });
-    terminal.show();
+    // 重用或建立終端機
+    // 檢查終端機是否仍然存在
+    if (!runnerTerminal || runnerTerminal.exitStatus !== undefined) {
+        runnerTerminal = vscode.window.createTerminal({
+            name: 'C/C++ Runner'
+        });
+    }
+    runnerTerminal.show();
     
     const isWindows = process.platform === 'win32';
     
@@ -503,18 +507,18 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     // 清空終端機
     if (config.get<boolean>('clearTerminal', true)) {
         const clearCommand = isWindows ? 'cls' : 'clear';
-        terminal.sendText(clearCommand, true);
+        runnerTerminal.sendText(clearCommand, true);
     }
     
     // Windows 環境設定 UTF-8（根據終端機類型使用對應語法）
     if (isWindows) {
         if (isPowerShell) {
             // PowerShell 需要設定控制台和輸出編碼
-            terminal.sendText('chcp 65001 2>&1 | Out-Null', true);
-            terminal.sendText('[Console]::OutputEncoding = [System.Text.Encoding]::UTF8', true);
+            runnerTerminal.sendText('chcp 65001 2>&1 | Out-Null', true);
+            runnerTerminal.sendText('[Console]::OutputEncoding = [System.Text.Encoding]::UTF8', true);
         } else {
             // CMD 只需要 chcp
-            terminal.sendText('chcp 65001 >nul 2>&1', true);
+            runnerTerminal.sendText('chcp 65001 >nul 2>&1', true);
         }
     }
     
@@ -525,7 +529,7 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     const fileName = path.basename(outputFile);
     
     // 統一先切換到檔案所在目錄（自訂和預設命令都需要）
-    terminal.sendText(`cd "${fileDir}"`, true);
+    runnerTerminal.sendText(`cd "${fileDir}"`, true);
     
     const customRunCommand = config.get<string>('customRunCommand', '');
     
@@ -570,7 +574,7 @@ async function runCurrentFile(skipTimeCheck: boolean = false): Promise<void> {
     }
     
     // 執行命令
-    terminal.sendText(execCommand);
+    runnerTerminal.sendText(execCommand);
 }
 
 function getCompiler(languageId: string, config: vscode.WorkspaceConfiguration): string {
@@ -606,5 +610,9 @@ function getOutputPath(sourceFile: string, config: vscode.WorkspaceConfiguration
 export function deactivate() {
     if (outputChannel) {
         outputChannel.dispose();
+    }
+    if (runnerTerminal) {
+        runnerTerminal.dispose();
+        runnerTerminal = undefined;
     }
 }

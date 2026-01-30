@@ -43,6 +43,7 @@ const util_1 = require("util");
 const util_2 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 let outputChannel;
+let runnerTerminal;
 function activate(context) {
     // 避免重複創建 outputChannel（測試環境可能多次啟動）
     if (!outputChannel) {
@@ -429,11 +430,14 @@ async function runCurrentFile(skipTimeCheck = false) {
             }
         }
     }
-    // 建立終端機並執行
-    const terminal = vscode.window.createTerminal({
-        name: 'C/C++ Runner'
-    });
-    terminal.show();
+    // 重用或建立終端機
+    // 檢查終端機是否仍然存在
+    if (!runnerTerminal || runnerTerminal.exitStatus !== undefined) {
+        runnerTerminal = vscode.window.createTerminal({
+            name: 'C/C++ Runner'
+        });
+    }
+    runnerTerminal.show();
     const isWindows = process.platform === 'win32';
     // 偵測終端機類型（僅用於 Windows 編碼設定）
     let isPowerShell = false;
@@ -449,18 +453,18 @@ async function runCurrentFile(skipTimeCheck = false) {
     // 清空終端機
     if (config.get('clearTerminal', true)) {
         const clearCommand = isWindows ? 'cls' : 'clear';
-        terminal.sendText(clearCommand, true);
+        runnerTerminal.sendText(clearCommand, true);
     }
     // Windows 環境設定 UTF-8（根據終端機類型使用對應語法）
     if (isWindows) {
         if (isPowerShell) {
             // PowerShell 需要設定控制台和輸出編碼
-            terminal.sendText('chcp 65001 2>&1 | Out-Null', true);
-            terminal.sendText('[Console]::OutputEncoding = [System.Text.Encoding]::UTF8', true);
+            runnerTerminal.sendText('chcp 65001 2>&1 | Out-Null', true);
+            runnerTerminal.sendText('[Console]::OutputEncoding = [System.Text.Encoding]::UTF8', true);
         }
         else {
             // CMD 只需要 chcp
-            terminal.sendText('chcp 65001 >nul 2>&1', true);
+            runnerTerminal.sendText('chcp 65001 >nul 2>&1', true);
         }
     }
     // 準備執行命令
@@ -469,7 +473,7 @@ async function runCurrentFile(skipTimeCheck = false) {
     const fileDir = path.dirname(outputFile);
     const fileName = path.basename(outputFile);
     // 統一先切換到檔案所在目錄（自訂和預設命令都需要）
-    terminal.sendText(`cd "${fileDir}"`, true);
+    runnerTerminal.sendText(`cd "${fileDir}"`, true);
     const customRunCommand = config.get('customRunCommand', '');
     if (useCustomCommand && customRunCommand) {
         // 使用自訂命令
@@ -513,7 +517,7 @@ async function runCurrentFile(skipTimeCheck = false) {
         }
     }
     // 執行命令
-    terminal.sendText(execCommand);
+    runnerTerminal.sendText(execCommand);
 }
 function getCompiler(languageId, config) {
     const customCompiler = config.get('compilerPath', '');
@@ -543,6 +547,10 @@ function getOutputPath(sourceFile, config) {
 function deactivate() {
     if (outputChannel) {
         outputChannel.dispose();
+    }
+    if (runnerTerminal) {
+        runnerTerminal.dispose();
+        runnerTerminal = undefined;
     }
 }
 //# sourceMappingURL=extension.js.map
