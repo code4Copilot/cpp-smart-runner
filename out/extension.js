@@ -368,9 +368,6 @@ async function compileCurrentFile() {
         outputChannel.appendLine('');
         outputChannel.appendLine('==================== 編譯失敗 ====================');
         outputChannel.appendLine(error.message);
-        if (error.stderr) {
-            outputChannel.appendLine(error.stderr);
-        }
         vscode.window.showErrorMessage('❌ 編譯失敗,請檢查錯誤訊息');
         return false;
     }

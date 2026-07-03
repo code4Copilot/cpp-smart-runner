@@ -2,7 +2,7 @@
   "name": "cpp-smart-runner",
   "displayName": "C/C++ Smart Runner",
   "description": "安全地編譯和執行 C/C++ 程式，具備檔案時間戳記檢查和自動編碼轉換功能",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "publisher": "hueyanchen",
   "author": {
     "name": "Hueyan Chen",
